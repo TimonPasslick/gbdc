@@ -50,6 +50,7 @@ test.sh
 build.sh
 Testing/
 data.csv
+venv
 # autotools output
 configure
 makefile
