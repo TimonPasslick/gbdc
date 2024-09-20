@@ -28,6 +28,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "src/identify/GBDHash.h"
 #include "src/identify/ISOHash.h"
+#include "src/identify/ISOHash2.h"
 
 #include "src/util/SolverTypes.h"
 
@@ -46,10 +47,10 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 int main(int argc, char** argv) {
     argparse::ArgumentParser argparse("CNF Tools");
 
-    argparse.add_argument("tool").help("Select Tool: solve, id|identify (gbdhash, opbhash, pqbfhash), isohash, normalize, sanitize, checksani, cnf2kis, cnf2bip, extract, gates")
+    argparse.add_argument("tool").help("Select Tool: solve, id|identify (gbdhash, opbhash, pqbfhash), isohash, isohash2, normalize, sanitize, checksani, cnf2kis, cnf2bip, extract, gates")
         .default_value("identify")
         .action([](const std::string& value) {
-            static const std::vector<std::string> choices = { "solve", "id", "identify", "gbdhash", "opbhash", "pqbfhash", "isohash", "normalize", "sanitize", "checksani", "cnf2kis", "cnf2bip", "extract", "gates", "test" };
+            static const std::vector<std::string> choices = { "solve", "id", "identify", "gbdhash", "opbhash", "pqbfhash", "isohash", "isohash2", "normalize", "sanitize", "checksani", "cnf2kis", "cnf2bip", "extract", "gates", "test" };
             if (std::find(choices.begin(), choices.end(), value) != choices.end()) {
                 return value;
             }
@@ -116,6 +117,18 @@ int main(int argc, char** argv) {
             } else if (ext == ".wcnf") {
                 std::cerr << "Detected WCNF, using WCNF isohash" << std::endl;
                 std::cout << WCNF::isohash(filename.c_str()) << std::endl;
+            }
+        } else if (toolname == "isohash2") {
+            std::string ext = std::filesystem::path(filename).extension();
+            if (ext == ".xz" || ext == ".lzma" || ext == ".bz2" || ext == ".gz") {
+                ext = std::filesystem::path(filename).stem().extension();
+            }
+            if (ext == ".cnf") {
+                std::cerr << "Detected CNF, using CNF isohash2" << std::endl;
+                std::cout << CNF::isohash2(filename.c_str()) << std::endl;
+            } else if (ext == ".wcnf") {
+                std::cerr << "Detected WCNF, using WCNF isohash2" << std::endl;
+                std::cout << WCNF::isohash2(filename.c_str()) << std::endl;
             }
         } else if (toolname == "opbhash") {
             std::cout << OPB::gbdhash(filename.c_str()) << std::endl;
