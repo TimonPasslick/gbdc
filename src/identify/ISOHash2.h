@@ -20,6 +20,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #ifndef ISOHASH2_H_
 #define ISOHASH2_H_
 
+#include <algorithm>
 #include <list>
 #include <string>
 #include <vector>
@@ -51,14 +52,15 @@ namespace CNF {
         struct Var {
             std::vector<Cl*> pos;
             std::vector<Cl*> neg;
-            int id; // rank in isometrical order if unique, else 0
+            int rank; // rank in isometrical order
+            bool in_interval; // whether the rank is shared
             Bool3 flipped;
             bool normalized() {
-                return id != 0 && flipped != Bool3::maybe;
+                return rank != 0 && flipped != Bool3::maybe;
             }
         };
         std::vector<Var> vars;
-        std::vector<int> order; // var numbers that get partially sorted by isometry
+        std::vector<int> order; // var numbers that get partially ordered by isometry
         std::list<Interval> unordered;
         std::list<Var*> maybe_flipped;
 
@@ -77,7 +79,47 @@ namespace CNF {
         for (int i = 0; i < order.size(); ++i)
             order[i] = i;
 
-        // TODO Timon
+        { // isohash1 calculation to be at least as good
+            for (Var& var : vars) {
+                int pos = var.pos.size();
+                int neg = var.neg.size();
+                if (neg > pos) var.flipped = Bool3::yes;
+                else if (pos > neg) var.flipped = Bool3::no;
+                else maybe_flipped.push_back(&var);
+            }
+            struct PN {
+                int p;
+                int n;
+                void flip() { std::swap(p, n); }
+                bool operator == (PN o) { return p == o.p && n == o.n; }
+                bool operator < (PN o) { return n != o.n ? n < o.n : p < o.p; }
+            };
+            const auto pn = [&vars](int i) {
+                Var& var = vars[i];
+                PN pn {(int) var.pos.size(), (int) var.neg.size()};
+                if (var.flipped == Bool3::yes) pn.flip();
+                return pn;
+            };
+            std::sort(order.begin(), order.end(), [&pn](int a, int b) { return pn(a) < pn(b); });
+            // check order
+            Interval iv {0, 0};
+            PN start = pn(0);
+            for (int i = 0; i < order.size(); ++i) {
+                int j = order[i];
+                PN here = pn(j);
+                if (here == start) ++iv.length;
+                else {
+                    if (iv.length > 1) unordered.push_back(iv);
+                    iv = {i, 1};
+                    start = here;
+                }
+                vars[j].rank = iv.start;
+            }
+            if (iv.length > 1) unordered.push_back(iv);
+        }
+
+        // TODO Timon: fixed depth recursion to improve order and find polarities
+
         // hash
         MD5 md5;
         char buffer[64];
