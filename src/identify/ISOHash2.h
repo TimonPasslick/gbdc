@@ -26,6 +26,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "lib/md5/md5.h"
 
+#include "src/util/CNFFormula.h"
+
 
 enum class Bool3 : signed char {
     yes = 1,
@@ -59,6 +61,22 @@ namespace CNF {
         std::vector<int> order; // var numbers that get partially sorted by isometry
         std::list<Interval> unordered;
         std::list<Var*> maybe_flipped;
+
+        // initialization
+        CNFFormula cnf(filename);
+        vars.resize(cnf.nVars());
+        for (Cl* cl : cnf) {
+            for (int i = 0; i < cl->size(); ++i) {
+                const Lit lit = (*cl)[i];
+                Var& var = vars[lit.var() - 1];
+                auto& cls = lit.sign() ? var.neg : var.pos;
+                cls.push_back(cl);
+            }
+        }
+        order.resize(vars.size());
+        for (int i = 0; i < order.size(); ++i)
+            order[i] = i;
+
         // TODO Timon
         // hash
         MD5 md5;
