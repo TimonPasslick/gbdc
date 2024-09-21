@@ -20,10 +20,23 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #ifndef ISOHASH2_H_
 #define ISOHASH2_H_
 
+#include <list>
 #include <string>
+#include <vector>
 
 #include "lib/md5/md5.h"
 
+
+enum class Bool3 : signed char {
+    yes = 1,
+    no = -1,
+    maybe = 0
+};
+
+struct Interval {
+    int start;
+    int length;
+};
 
 namespace CNF {
     /**
@@ -32,6 +45,20 @@ namespace CNF {
      * @return std::string isohash2
      */
     std::string isohash2(const char* filename) {
+        // data structures
+        struct Var {
+            std::vector<Cl*> pos;
+            std::vector<Cl*> neg;
+            int id; // rank in isometrical order if unique, else 0
+            Bool3 flipped;
+            bool normalized() {
+                return id != 0 && flipped != Bool3::maybe;
+            }
+        };
+        std::vector<Var> vars;
+        std::vector<int> order; // var numbers that get partially sorted by isometry
+        std::list<Interval> unordered;
+        std::list<Var*> maybe_flipped;
         // TODO Timon
         // hash
         MD5 md5;
