@@ -36,7 +36,7 @@ enum class Bool3 : signed char {
     maybe = 0
 };
 
-struct Interval {
+struct Iv { // interval
     int start;
     int length;
 };
@@ -61,7 +61,7 @@ namespace CNF {
         };
         std::vector<Var> vars;
         std::vector<int> order; // var numbers that get partially ordered by isometry
-        std::list<Interval> unordered;
+        std::list<Iv> unordered;
         std::list<Var*> maybe_flipped;
 
         // initialization
@@ -102,7 +102,7 @@ namespace CNF {
             };
             std::sort(order.begin(), order.end(), [&pn](int a, int b) { return pn(a) < pn(b); });
             // check order
-            Interval iv {0, 0};
+            Iv iv {0, 0};
             PN start = pn(0);
             for (int i = 0; i < order.size(); ++i) {
                 int j = order[i];
@@ -118,7 +118,41 @@ namespace CNF {
             if (iv.length > 1) unordered.push_back(iv);
         }
 
-        // TODO Timon: fixed depth recursion to improve order and find polarities
+        { // TODO Timon: fixed depth recursion to improve order and find polarities
+            const auto size_count = [](const std::vector<Cl*>& cls) {
+                std::vector<int> size_count;
+                for (Cl* cl : cls) {
+                    int size = cl->size();
+                    if (size >= size_count.size())
+                        size_count.reserve(size * 2); // logarithmic reallocation
+                        size_count.resize(size);
+                    ++size_count[size];
+                }
+                return size_count;
+            };
+            const auto flagship = [](const std::vector<int>& a, const std::vector<int>& b) {
+                int result = a.size() - b.size();
+                for (int i = 0; i < a.size(); ++i) {
+                    if (result != 0) return result;
+                    result = a[i] - b[i];
+                }
+                return result;
+            };
+            auto fi = maybe_flipped.begin();
+            while (fi != maybe_flipped.end()) {
+                Var& var = **fi;
+                int cmp = flagship(size_count(var.pos), size_count(var.neg));
+                auto prev = fi++;
+                if (cmp == 0) continue;
+                else if (cmp < 0) var.flipped = Bool3::yes;
+                else var.flipped = Bool3::no;
+                maybe_flipped.erase(prev);
+            }
+            auto ii = unordered.begin();
+            while (ii != unordered.end()) {
+                // TODO Timon
+            }
+        }
 
         // hash
         MD5 md5;
