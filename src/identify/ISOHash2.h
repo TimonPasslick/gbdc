@@ -109,7 +109,11 @@ namespace CNF {
                 PN here = pn(j);
                 if (here == start) ++iv.length;
                 else {
-                    if (iv.length > 1) unordered.push_back(iv);
+                    if (iv.length > 1) {
+                        unordered.push_back(iv);
+                        for (int k = 0; k < iv.length; ++i)
+                            vars[order[i - k]].in_interval = true;
+                    }
                     iv = {i, 1};
                     start = here;
                 }
