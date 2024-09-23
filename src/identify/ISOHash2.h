@@ -154,7 +154,31 @@ namespace CNF {
             }
             auto ii = unordered.begin();
             while (ii != unordered.end()) {
-                // TODO Timon
+                auto begin = order.begin() + ii->start;
+                const auto end = begin + ii->length;
+                std::sort(begin, end, [&vars, &flagship, &size_count](int a, int b) {
+                    int cmp = flagship(size_count(vars[a].pos), size_count(vars[b].pos));
+                    if (cmp != 0) return cmp < 0;
+                    return flagship(size_count(vars[a].neg), size_count(vars[b].neg)) < 0;
+                });
+                //check order
+                Iv iv {ii->start, 1};
+                {
+                    auto prev = ii--;
+                    unordered.erase(prev);
+                }
+                std::vector<int> pstart = size_count(vars[*begin].pos);
+                std::vector<int> nstart = size_count(vars[*begin].neg);
+                while (++begin != end) {
+                    Var& var = vars[*begin];
+                    if (size_count(var.pos) != pstart || size_count(var.neg) != nstart) {
+                        if (iv.length == 1) var.in_interval = false;
+                        else ii = unordered.insert(ii, iv);
+                        iv = {(int) (begin - order.begin()), 1};
+                        pstart = size_count(vars[*begin].pos);
+                        nstart = size_count(vars[*begin].neg);
+                    }
+                }
             }
         }
 
