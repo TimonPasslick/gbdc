@@ -36,11 +36,6 @@ enum class Bool3 : signed char {
     maybe = 0
 };
 
-struct Iv { // interval
-    int start;
-    int length;
-};
-
 namespace CNF {
     /**
      * @brief TODO Timon
@@ -49,20 +44,19 @@ namespace CNF {
      */
     std::string isohash2(const char* filename) {
         // data structures
+        struct PN {
+            int p;
+            int n;
+            void flip() { std::swap(p, n); }
+            bool operator < (PN o) { return n != o.n ? n < o.n : p < o.p; }
+        };
         struct Var {
-            std::vector<Cl*> pos;
-            std::vector<Cl*> neg;
+            PN pn;
             int rank; // rank in isometrical order
-            bool in_interval; // whether the rank is shared
             Bool3 flipped;
-            bool normalized() {
-                return rank != 0 && flipped != Bool3::maybe;
-            }
         };
         std::vector<Var> vars;
-        std::vector<int> order; // var numbers that get partially ordered by isometry
-        std::list<Iv> unordered;
-        std::list<Var*> maybe_flipped;
+        std::vector<int> order; // var numbers partially ordered by isometry
 
         // initialization
         CNFFormula cnf(filename);
@@ -71,116 +65,31 @@ namespace CNF {
             for (int i = 0; i < cl->size(); ++i) {
                 const Lit lit = (*cl)[i];
                 Var& var = vars[lit.var() - 1];
-                auto& cls = lit.sign() ? var.neg : var.pos;
-                cls.push_back(cl);
+                if (lit.sign()) ++var.pn.n;
+                else ++var.pn.p;
             }
         }
         order.resize(vars.size());
         for (int i = 0; i < order.size(); ++i)
             order[i] = i;
 
-        { // isohash1 calculation to be at least as good
-            for (Var& var : vars) {
-                int pos = var.pos.size();
-                int neg = var.neg.size();
-                if (neg > pos) var.flipped = Bool3::yes;
-                else if (pos > neg) var.flipped = Bool3::no;
-                else maybe_flipped.push_back(&var);
-            }
-            struct PN {
-                int p;
-                int n;
-                void flip() { std::swap(p, n); }
-                bool operator == (PN o) { return p == o.p && n == o.n; }
-                bool operator < (PN o) { return n != o.n ? n < o.n : p < o.p; }
-            };
-            const auto pn = [&vars](int i) {
-                Var& var = vars[i];
-                PN pn {(int) var.pos.size(), (int) var.neg.size()};
-                if (var.flipped == Bool3::yes) pn.flip();
-                return pn;
-            };
-            std::sort(order.begin(), order.end(), [&pn](int a, int b) { return pn(a) < pn(b); });
-            // check order
-            Iv iv {0, 0};
-            PN start = pn(0);
-            for (int i = 0; i < order.size(); ++i) {
-                int j = order[i];
-                PN here = pn(j);
-                if (here == start) ++iv.length;
-                else {
-                    if (iv.length > 1) {
-                        unordered.push_back(iv);
-                        for (int k = 0; k < iv.length; ++i)
-                            vars[order[i - k]].in_interval = true;
-                    }
-                    iv = {i, 1};
-                    start = here;
-                }
-                vars[j].rank = iv.start;
-            }
-            if (iv.length > 1) unordered.push_back(iv);
+        // find canonical polarities (if they exist)
+        for (Var& var : vars) {
+            if (var.pn.n > var.pn.p) {
+                var.flipped = Bool3::yes;
+                var.pn.flip();
+            } else if (var.pn.p > var.pn.n) var.flipped = Bool3::no;
+            else var.flipped = Bool3::maybe;
         }
+        // isohash1 order
+        std::sort(order.begin(), order.end(), [&vars](int a, int b) {
+            return vars[a].pn < vars[b].pn;
+        });
+        // rank access
+        for (int i = 0; i < order.size(); ++i)
+            vars[order[i]].rank = i;
 
-        { // TODO Timon: fixed depth recursion to improve order and find polarities
-            const auto size_count = [](const std::vector<Cl*>& cls) {
-                std::vector<int> size_count;
-                for (Cl* cl : cls) {
-                    int size = cl->size();
-                    if (size >= size_count.size())
-                        size_count.reserve(size * 2); // logarithmic reallocation
-                        size_count.resize(size);
-                    ++size_count[size];
-                }
-                return size_count;
-            };
-            const auto flagship = [](const std::vector<int>& a, const std::vector<int>& b) {
-                int result = a.size() - b.size();
-                for (int i = 0; i < a.size(); ++i) {
-                    if (result != 0) return result;
-                    result = a[i] - b[i];
-                }
-                return result;
-            };
-            auto fi = maybe_flipped.begin();
-            while (fi != maybe_flipped.end()) {
-                Var& var = **fi;
-                int cmp = flagship(size_count(var.pos), size_count(var.neg));
-                auto prev = fi++;
-                if (cmp == 0) continue;
-                else if (cmp < 0) var.flipped = Bool3::yes;
-                else var.flipped = Bool3::no;
-                maybe_flipped.erase(prev);
-            }
-            auto ii = unordered.begin();
-            while (ii != unordered.end()) {
-                auto begin = order.begin() + ii->start;
-                const auto end = begin + ii->length;
-                std::sort(begin, end, [&vars, &flagship, &size_count](int a, int b) {
-                    int cmp = flagship(size_count(vars[a].pos), size_count(vars[b].pos));
-                    if (cmp != 0) return cmp < 0;
-                    return flagship(size_count(vars[a].neg), size_count(vars[b].neg)) < 0;
-                });
-                //check order
-                Iv iv {ii->start, 1};
-                {
-                    auto prev = ii--;
-                    unordered.erase(prev);
-                }
-                std::vector<int> pstart = size_count(vars[*begin].pos);
-                std::vector<int> nstart = size_count(vars[*begin].neg);
-                while (++begin != end) {
-                    Var& var = vars[*begin];
-                    if (size_count(var.pos) != pstart || size_count(var.neg) != nstart) {
-                        if (iv.length == 1) var.in_interval = false;
-                        else ii = unordered.insert(ii, iv);
-                        iv = {(int) (begin - order.begin()), 1};
-                        pstart = size_count(vars[*begin].pos);
-                        nstart = size_count(vars[*begin].neg);
-                    }
-                }
-            }
-        }
+        // TODO Timon: formula transformation
 
         // hash
         MD5 md5;
