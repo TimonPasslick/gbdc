@@ -113,7 +113,7 @@ namespace CNF {
         for (Cl* cl : cnf) {
             for (Lit& lit : *cl)
                 hash(lit.x);
-            hash(Bool3::yes - 1); // separator
+            hash(0b11 << 29); // separator
         }
         return md5.produce();
     }
