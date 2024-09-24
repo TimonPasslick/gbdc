@@ -123,13 +123,7 @@ int main(int argc, char** argv) {
             if (ext == ".xz" || ext == ".lzma" || ext == ".bz2" || ext == ".gz") {
                 ext = std::filesystem::path(filename).stem().extension();
             }
-            if (ext == ".cnf") {
-                std::cerr << "Detected CNF, using CNF isohash2" << std::endl;
-                std::cout << CNF::isohash2(filename.c_str()) << std::endl;
-            } else if (ext == ".wcnf") {
-                std::cerr << "Detected WCNF, using WCNF isohash2" << std::endl;
-                std::cout << WCNF::isohash2(filename.c_str()) << std::endl;
-            }
+            std::cout << CNF::isohash2(filename.c_str()) << std::endl;
         } else if (toolname == "opbhash") {
             std::cout << OPB::gbdhash(filename.c_str()) << std::endl;
         } else if (toolname == "pqbfhash") {
