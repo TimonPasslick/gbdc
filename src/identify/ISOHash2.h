@@ -45,7 +45,7 @@ namespace CNF {
             int p;
             int n;
             void flip() { std::swap(p, n); }
-            bool operator < (PN o) { return n != o.n ? n < o.n : p < o.p; }
+            bool operator < (PN o) const { return n != o.n ? n < o.n : p < o.p; }
         };
         enum Bool3 : unsigned {
             no = 0b00 << 29,
@@ -85,7 +85,7 @@ namespace CNF {
             else var.rank |= Bool3::maybe;
         }
         // isohash1 order
-        std::sort(order.begin(), order.end(), [&vars](int a, int b) {
+        std::sort(order.begin(), order.end(), [&vars](const int a, const int b) {
             return vars[a].pn < vars[b].pn;
         });
         // rank access
@@ -97,7 +97,7 @@ namespace CNF {
         for (auto& clcb : cnf) {
             Cl& cl = clcb.vector();
             for (Lit& lit : cl) {
-                bool sign = lit.sign();
+                const bool sign = lit.sign();
                 lit.x = vars[lit.var() - 1].rank;
                 if (sign && lit.x < Bool3::maybe) lit.x ^= Bool3::yes;
             }
