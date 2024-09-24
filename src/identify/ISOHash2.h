@@ -123,15 +123,4 @@ namespace CNF {
     }
 } // namespace CNF
 
-namespace WCNF {
-    std::string isohash2(const char* filename) {
-        // TODO Timon
-        // hash
-        MD5 md5;
-        char buffer[64];
-        // TODO Timon
-        return md5.produce();
-    }
-} // namespace CNF
-
 #endif  // ISOHASH2_H_
