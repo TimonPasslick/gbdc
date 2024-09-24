@@ -98,7 +98,7 @@ namespace CNF {
             }
             std::sort(cl->begin(), cl->end());
         }
-        std::sort(cnf.begin(), cnf.end(), [](Cl* a, Cl* b) {
+        std::sort(cnf.mutable_begin(), cnf.mutable_end(), [](Cl* a, Cl* b) {
             if (a->size() != b->size()) return a->size() < b->size();
             for (int i = 0; i < a->size(); ++i)
                 if ((*a)[i] != (*b)[i]) return (*a)[i] < (*b)[i];
