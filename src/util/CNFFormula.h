@@ -51,7 +51,15 @@ class CNFFormula {
         return formula.begin();
     }
 
+    inline For::iterator mutable_begin() {
+        return formula.begin();
+    }
+
     inline const_iterator end() const {
+        return formula.end();
+    }
+
+    inline For::iterator mutable_end() {
         return formula.end();
     }
 
