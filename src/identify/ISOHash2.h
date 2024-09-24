@@ -30,12 +30,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "src/util/CNFFormula.h"
 
 
-enum class Bool3 : signed char {
-    yes = 1,
-    no = -1,
-    maybe = 0
-};
-
 namespace CNF {
     /**
      * @brief TODO Timon
@@ -50,10 +44,15 @@ namespace CNF {
             void flip() { std::swap(p, n); }
             bool operator < (PN o) { return n != o.n ? n < o.n : p < o.p; }
         };
+        enum Bool3 : unsigned {
+            no = 0b00 << 29,
+            yes = 0b01 << 29,
+            maybe = 0b10 << 29,
+        };
         struct Var {
             PN pn;
-            int rank; // rank in isometrical order
-            Bool3 flipped;
+            // rank in isometrical order, Bool3 if it's flipped in first 2 bits
+            unsigned rank;
         };
         std::vector<Var> vars;
         std::vector<int> order; // var numbers partially ordered by isometry
@@ -76,20 +75,35 @@ namespace CNF {
         // find canonical polarities (if they exist)
         for (Var& var : vars) {
             if (var.pn.n > var.pn.p) {
-                var.flipped = Bool3::yes;
+                var.rank |= Bool3::yes;
                 var.pn.flip();
-            } else if (var.pn.p > var.pn.n) var.flipped = Bool3::no;
-            else var.flipped = Bool3::maybe;
+            } else if (var.pn.p > var.pn.n) var.rank |= Bool3::no;
+            else var.rank |= Bool3::maybe;
         }
         // isohash1 order
         std::sort(order.begin(), order.end(), [&vars](int a, int b) {
             return vars[a].pn < vars[b].pn;
         });
         // rank access
-        for (int i = 0; i < order.size(); ++i)
-            vars[order[i]].rank = i;
+        assert(order.size() <= Bool3::yes);
+        for (unsigned i = 0; i < order.size(); ++i)
+            vars[order[i]].rank |= i;
 
-        // TODO Timon: formula transformation
+        // formula transformation
+        for (Cl* cl : cnf) {
+            for (Lit& lit : *cl) {
+                bool sign = lit.sign();
+                lit.x = vars[lit.var() - 1].rank;
+                if (sign && lit.x < Bool3::maybe) lit.x ^= Bool3::yes;
+            }
+            std::sort(cl->begin(), cl->end());
+        }
+        std::sort(cnf.begin(), cnf.end(), [](Cl* a, Cl* b) {
+            if (a->size() != b->size()) return a->size() < b->size();
+            for (int i = 0; i < a->size(); ++i)
+                if ((*a)[i] != (*b)[i]) return (*a)[i] < (*b)[i];
+            return false;
+        });
 
         // hash
         MD5 md5;
