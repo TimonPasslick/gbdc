@@ -17,8 +17,8 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  **************************************************************************************************/
 
-#ifndef SRC_UTIL_CNFFORMULA_H_
-#define SRC_UTIL_CNFFORMULA_H_
+#ifndef SRC_UTIL_POINTERLESSCNFFORMULA_H_
+#define SRC_UTIL_POINTERLESSCNFFORMULA_H_
 
 #include <vector>
 #include <algorithm>
@@ -28,26 +28,36 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "src/util/StreamBuffer.h"
 #include "src/util/SolverTypes.h"
 
-class CNFFormula {
-    For formula;
+class PointerlessCNFFormula {
+    struct VectorControlBlock {
+        unsigned char bytes[sizeof(Cl)];
+        Cl& vector() { return *reinterpret_cast<Cl*>(bytes); }
+        const Cl& vector() const { return *reinterpret_cast<const Cl*>(bytes); }
+    };
+    std::vector<VectorControlBlock> formula;
     unsigned variables;
 
  public:
-    CNFFormula() : formula(), variables(0) { }
+    PointerlessCNFFormula() : formula(), variables(0) { }
 
-    explicit CNFFormula(const char* filename) : CNFFormula() {
+    explicit PointerlessCNFFormula(const char* filename) : PointerlessCNFFormula() {
         readDimacsFromFile(filename);
     }
 
-    ~CNFFormula() {
-        for (Cl* clause : formula) {
-            delete clause;
+    ~PointerlessCNFFormula() {
+        for (VectorControlBlock& clause : formula) {
+            delete &clause.vector();
         }
     }
 
-    typedef For::const_iterator const_iterator;
+    typedef std::vector<VectorControlBlock>::const_iterator const_iterator;
+    typedef std::vector<VectorControlBlock>::iterator iterator;
 
     inline const_iterator begin() const {
+        return formula.begin();
+    }
+
+    inline iterator begin() {
         return formula.begin();
     }
 
@@ -55,8 +65,12 @@ class CNFFormula {
         return formula.end();
     }
 
-    inline const Cl* operator[] (int i) const {
-        return formula[i];
+    inline iterator end() {
+        return formula.end();
+    }
+
+    inline const Cl& operator[] (int i) const {
+        return formula[i].vector();
     }
 
     inline size_t nVars() const {
@@ -80,8 +94,8 @@ class CNFFormula {
         std::vector<unsigned> name;
         name.resize(variables+1, 0);
         unsigned int max = 0;
-        for (Cl* clause : formula) {
-            for (Lit& lit : *clause) {
+        for (VectorControlBlock& clause : formula) {
+            for (Lit& lit : clause.vector()) {
                 if (name[lit.var()] == 0) name[lit.var()] = max++;
                 lit = Lit(name[lit.var()], lit.sign());
             }
@@ -119,15 +133,17 @@ class CNFFormula {
 
     template <typename Iterator>
     void readClause(Iterator begin, Iterator end) {
-        Cl* clause = new Cl { begin, end };
-        if (clause->size() > 0) {
+        formula.push_back({});
+        Cl& clause = formula.back().vector();
+        clause = Cl { begin, end };
+        if (clause.size() > 0) {
             // remove redundant literals
-            std::sort(clause->begin(), clause->end());
+            std::sort(clause.begin(), clause.end());
             unsigned dup = 0;
-            for (auto it = clause->begin(), jt = clause->begin()+1; jt != clause->end(); ++jt) {
+            for (auto it = clause.begin(), jt = clause.begin()+1; jt != clause.end(); ++jt) {
                 if (*it != *jt) {  // unique
                     if (it->var() == jt->var()) {
-                        delete clause;
+                        formula.pop_back();
                         return;  // no tautologies
                     }
                     ++it;
@@ -136,13 +152,12 @@ class CNFFormula {
                     ++dup;
                 }
             }
-            clause->resize(clause->size() - dup);
-            clause->shrink_to_fit();
-            variables = std::max(variables, (unsigned int)clause->back().var());
+            clause.resize(clause.size() - dup);
+            clause.shrink_to_fit();
+            variables = std::max(variables, (unsigned int)clause.back().var());
         }
-        formula.push_back(clause);
     }
 };
 
-#endif  // SRC_UTIL_CNFFORMULA_H_
+#endif  // SRC_UTIL_POINTERLESSCNFFORMULA_H_
 
