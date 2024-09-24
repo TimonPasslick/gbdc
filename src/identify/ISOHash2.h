@@ -27,7 +27,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "lib/md5/md5.h"
 
-#include "src/util/CNFFormula.h"
+#include "src/util/PointerlessCNFFormula.h"
 
 
 namespace CNF {
@@ -58,11 +58,12 @@ namespace CNF {
         std::vector<int> order; // var numbers partially ordered by isometry
 
         // initialization
-        CNFFormula cnf(filename);
+        PointerlessCNFFormula cnf(filename);
         vars.resize(cnf.nVars());
-        for (Cl* cl : cnf) {
-            for (int i = 0; i < cl->size(); ++i) {
-                const Lit lit = (*cl)[i];
+        for (const auto& clcb : cnf) {
+            const Cl& cl = clcb.vector();
+            for (int i = 0; i < cl.size(); ++i) {
+                const Lit lit = cl[i];
                 Var& var = vars[lit.var() - 1];
                 if (lit.sign()) ++var.pn.n;
                 else ++var.pn.p;
@@ -90,18 +91,21 @@ namespace CNF {
             vars[order[i]].rank |= i;
 
         // formula transformation
-        for (Cl* cl : cnf) {
-            for (Lit& lit : *cl) {
+        for (auto& clcb : cnf) {
+            Cl& cl = clcb.vector();
+            for (Lit& lit : cl) {
                 bool sign = lit.sign();
                 lit.x = vars[lit.var() - 1].rank;
                 if (sign && lit.x < Bool3::maybe) lit.x ^= Bool3::yes;
             }
-            std::sort(cl->begin(), cl->end());
+            std::sort(cl.begin(), cl.end());
         }
-        std::sort(cnf.mutable_begin(), cnf.mutable_end(), [](Cl* a, Cl* b) {
-            if (a->size() != b->size()) return a->size() < b->size();
-            for (int i = 0; i < a->size(); ++i)
-                if ((*a)[i] != (*b)[i]) return (*a)[i] < (*b)[i];
+        std::sort(cnf.begin(), cnf.end(), [](const auto& acb, const auto& bcb) {
+            const auto& a = acb.vector();
+            const auto& b = bcb.vector();
+            if (a.size() != b.size()) return a.size() < b.size();
+            for (int i = 0; i < a.size(); ++i)
+                if (a[i] != b[i]) return a[i] < b[i];
             return false;
         });
 
@@ -110,8 +114,8 @@ namespace CNF {
         const auto hash = [&md5](unsigned x) {
             md5.consume(reinterpret_cast<char*>(&x), sizeof(unsigned));
         };
-        for (Cl* cl : cnf) {
-            for (Lit& lit : *cl)
+        for (const auto& clcb : cnf) {
+            for (const Lit& lit : clcb.vector())
                 hash(lit.x);
             hash(0b11 << 29); // separator
         }
