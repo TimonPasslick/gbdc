@@ -107,8 +107,14 @@ namespace CNF {
 
         // hash
         MD5 md5;
-        char buffer[64];
-        // TODO Timon
+        const auto hash = [&md5](unsigned x) {
+            md5.consume(reinterpret_cast<char*>(&x), sizeof(unsigned));
+        };
+        for (Cl* cl : cnf) {
+            for (Lit& lit : *cl)
+                hash(lit.x);
+            hash(Bool3::yes - 1); // separator
+        }
         return md5.produce();
     }
 } // namespace CNF
