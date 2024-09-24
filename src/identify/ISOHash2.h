@@ -117,7 +117,7 @@ namespace CNF {
         for (const auto& clcb : cnf) {
             for (const Lit& lit : clcb.vector())
                 hash(lit.x);
-            hash(0b11 << 29); // separator
+            hash((unsigned) 0b11 << 29); // separator
         }
         return md5.produce();
     }
