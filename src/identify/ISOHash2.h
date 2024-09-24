@@ -32,7 +32,10 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 namespace CNF {
     /**
-     * @brief TODO Timon
+     * @brief Hashsum of formula with variables transformed to rank in ordered degree sequence of literal incidence graph
+     * - literal nodes are grouped pairwise and sorted lexicographically
+     * - edge weight of 1/n ==> literal node degree = occurence count
+     * - sign is preserved canonically if literal node degrees are equal
      * @param filename benchmark instance
      * @return std::string isohash2
      */
