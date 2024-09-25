@@ -48,9 +48,9 @@ namespace CNF {
             bool operator < (PN o) const { return n != o.n ? n < o.n : p < o.p; }
         };
         enum Bool3 : unsigned {
-            no = 0b00 << 29,
-            yes = 0b01 << 29,
-            maybe = 0b10 << 29,
+            no = (unsigned) 0 << 30,
+            yes = (unsigned) 1 << 30,
+            maybe = (unsigned) 1 << 31,
         };
         struct Var {
             PN pn;
@@ -75,10 +75,10 @@ namespace CNF {
         // find canonical polarities (if they exist)
         for (Var& var : vars) {
             if (var.pn.n > var.pn.p) {
-                var.rank |= Bool3::yes;
+                var.rank = Bool3::yes;
                 var.pn.flip();
-            } else if (var.pn.p > var.pn.n) var.rank |= Bool3::no;
-            else var.rank |= Bool3::maybe;
+            } else if (var.pn.p > var.pn.n) var.rank = Bool3::no;
+            else var.rank = Bool3::maybe;
         }
         // isohash1 order
         std::sort(order.begin(), order.end(), [&vars](const int a, const int b) {
@@ -93,7 +93,7 @@ namespace CNF {
         for (Lit& lit : cnf.literals) {
             const bool sign = lit.sign();
             lit.x = vars[lit.var() - 1].rank;
-            if (sign && lit.x < Bool3::maybe) lit.x ^= Bool3::yes;
+            if (sign && lit.x & Bool3::maybe == 0) lit.x ^= Bool3::yes;
         }
         for (int i = 0; i < cnf.clauses.size(); ++i) {
             const auto slice = cnf.clauses[i];
@@ -121,7 +121,7 @@ namespace CNF {
         for (const auto& slice : cnf.clauses) {
             for (int i = slice.begin; i < slice.end; ++i)
                 hash(cnf.literals[i].x);
-            hash((unsigned) 0b11 << 29); // separator
+            hash(Bool3::maybe | Bool3::yes); // separator
         }
         return md5.produce();
     }
