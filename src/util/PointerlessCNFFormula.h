@@ -107,7 +107,7 @@ struct PointerlessCNFFormula {
             // remove redundant literals
             std::sort(literals.end() - size, literals.end());
             unsigned dup = 0;
-            const auto begin = literals.end() - size
+            const auto begin = literals.end() - size;
             for (auto it = begin, jt = begin + 1; jt != literals.end(); ++jt) {
                 if (*it != *jt) {  // unique
                     if (it->var() == jt->var()) {
