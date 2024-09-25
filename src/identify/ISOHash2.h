@@ -62,15 +62,11 @@ namespace CNF {
 
         // initialization
         PointerlessCNFFormula cnf(filename);
-        vars.resize(cnf.nVars());
-        for (const auto& clcb : cnf) {
-            const Cl& cl = clcb.vector();
-            for (int i = 0; i < cl.size(); ++i) {
-                const Lit lit = cl[i];
-                Var& var = vars[lit.var() - 1];
-                if (lit.sign()) ++var.pn.n;
-                else ++var.pn.p;
-            }
+        vars.resize(cnf.variables);
+        for (const Lit lit : cnf.literals) {
+            Var& var = vars[lit.var() - 1];
+            if (lit.sign()) ++var.pn.n;
+            else ++var.pn.p;
         }
         order.resize(vars.size());
         for (int i = 0; i < order.size(); ++i)
@@ -94,21 +90,26 @@ namespace CNF {
             vars[order[i]].rank |= i;
 
         // formula transformation
-        for (auto& clcb : cnf) {
-            Cl& cl = clcb.vector();
-            for (Lit& lit : cl) {
-                const bool sign = lit.sign();
-                lit.x = vars[lit.var() - 1].rank;
-                if (sign && lit.x < Bool3::maybe) lit.x ^= Bool3::yes;
-            }
-            std::sort(cl.begin(), cl.end());
+        for (Lit& lit : cnf.literals) {
+            const bool sign = lit.sign();
+            lit.x = vars[lit.var() - 1].rank;
+            if (sign && lit.x < Bool3::maybe) lit.x ^= Bool3::yes;
         }
-        std::sort(cnf.begin(), cnf.end(), [](const auto& acb, const auto& bcb) {
-            const auto& a = acb.vector();
-            const auto& b = bcb.vector();
-            if (a.size() != b.size()) return a.size() < b.size();
-            for (int i = 0; i < a.size(); ++i)
-                if (a[i] != b[i]) return a[i] < b[i];
+        for (int i = 0; i < cnf.clauses.size(); ++i) {
+            const auto slice = cnf.clauses[i];
+            std::sort(
+                    cnf.literals.begin() + slice.begin,
+                    cnf.literals.begin() + slice.end);
+        }
+        std::sort(cnf.clauses.begin(), cnf.clauses.end(), [&cnf](const auto& asl, const auto& bsl) {
+            const unsigned asize = asl.end - asl.begin;
+            const unsigned bsize = bsl.end - bsl.begin;
+            if (asize != bsize) return asize < bsize;
+            for (int i = 0; i < asize; ++i) {
+                const Lit alit = cnf.literals[asl.begin + i];
+                const Lit blit = cnf.literals[bsl.begin + i];
+                if (alit != blit) return alit < blit;
+            }
             return false;
         });
 
@@ -117,9 +118,9 @@ namespace CNF {
         const auto hash = [&md5](unsigned x) {
             md5.consume(reinterpret_cast<char*>(&x), sizeof(unsigned));
         };
-        for (const auto& clcb : cnf) {
-            for (const Lit& lit : clcb.vector())
-                hash(lit.x);
+        for (const auto& slice : cnf.clauses) {
+            for (int i = slice.begin; i < slice.end; ++i)
+                hash(cnf.literals[i].x);
             hash((unsigned) 0b11 << 29); // separator
         }
         return md5.produce();
