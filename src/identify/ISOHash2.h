@@ -59,20 +59,15 @@ namespace CNF {
         };
         std::vector<Var> vars;
         std::vector<int> order; // var numbers partially ordered by isometry
-
-        // initialization
         PointerlessCNFFormula cnf(filename);
+
+        // find canonical polarities (if they exist)
         vars.resize(cnf.variables);
         for (const Lit lit : cnf.literals) {
             Var& var = vars[lit.var() - 1];
             if (lit.sign()) ++var.pn.n;
             else ++var.pn.p;
         }
-        order.resize(vars.size());
-        for (int i = 0; i < order.size(); ++i)
-            order[i] = i;
-
-        // find canonical polarities (if they exist)
         for (Var& var : vars) {
             if (var.pn.n > var.pn.p) {
                 var.rank = Bool3::yes;
@@ -80,7 +75,11 @@ namespace CNF {
             } else if (var.pn.p > var.pn.n) var.rank = Bool3::no;
             else var.rank = Bool3::maybe;
         }
+
         // isohash1 order
+        order.resize(vars.size());
+        for (int i = 0; i < order.size(); ++i)
+            order[i] = i;
         std::sort(order.begin(), order.end(), [&vars](const int a, const int b) {
             return vars[a].pn < vars[b].pn;
         });
@@ -90,17 +89,20 @@ namespace CNF {
             vars[order[i]].rank |= i;
 
         // formula transformation
+        // literal transformation
         for (Lit& lit : cnf.literals) {
             const bool sign = lit.sign();
             lit.x = vars[lit.var() - 1].rank;
             if (sign && lit.x & Bool3::maybe == 0) lit.x ^= Bool3::yes;
         }
+        // clause sorting
         for (int i = 0; i < cnf.clauses.size(); ++i) {
             const auto slice = cnf.clauses[i];
             std::sort(
                     cnf.literals.begin() + slice.begin,
                     cnf.literals.begin() + slice.end);
         }
+        // formula sorting
         std::sort(cnf.clauses.begin(), cnf.clauses.end(), [&cnf](const auto& asl, const auto& bsl) {
             const unsigned asize = asl.end - asl.begin;
             const unsigned bsize = bsl.end - bsl.begin;
