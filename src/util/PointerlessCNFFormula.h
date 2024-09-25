@@ -28,57 +28,23 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "src/util/StreamBuffer.h"
 #include "src/util/SolverTypes.h"
 
-class PointerlessCNFFormula {
-    struct VectorControlBlock {
-        unsigned char bytes[sizeof(Cl)];
-        Cl& vector() { return *reinterpret_cast<Cl*>(bytes); }
-        const Cl& vector() const { return *reinterpret_cast<const Cl*>(bytes); }
+struct PointerlessCNFFormula {
+    struct Slice {
+        unsigned begin;
+        unsigned end;
     };
-    std::vector<VectorControlBlock> formula;
+    std::vector<Lit> literals;
+    std::vector<Slice> clauses;
     unsigned variables;
 
- public:
-    PointerlessCNFFormula() : formula(), variables(0) { }
+    PointerlessCNFFormula() : literals(), clauses(), variables(0) { }
 
     explicit PointerlessCNFFormula(const char* filename) : PointerlessCNFFormula() {
         readDimacsFromFile(filename);
     }
 
-    ~PointerlessCNFFormula() {
-        for (VectorControlBlock& clause : formula) {
-            delete &clause.vector();
-        }
-    }
-
-    typedef std::vector<VectorControlBlock>::const_iterator const_iterator;
-    typedef std::vector<VectorControlBlock>::iterator iterator;
-
-    inline const_iterator begin() const {
-        return formula.begin();
-    }
-
-    inline iterator begin() {
-        return formula.begin();
-    }
-
-    inline const_iterator end() const {
-        return formula.end();
-    }
-
-    inline iterator end() {
-        return formula.end();
-    }
-
-    inline const Cl& operator[] (int i) const {
-        return formula[i].vector();
-    }
-
-    inline size_t nVars() const {
-        return variables;
-    }
-
     inline size_t nClauses() const {
-        return formula.size();
+        return clauses.size();
     }
 
     inline int newVar() {
@@ -86,7 +52,9 @@ class PointerlessCNFFormula {
     }
 
     inline void clear() {
-        formula.clear();
+        literals.clear();
+        clauses.clear();
+        variables = 0;
     }
 
     // create gapless representation of variables
@@ -94,11 +62,9 @@ class PointerlessCNFFormula {
         std::vector<unsigned> name;
         name.resize(variables+1, 0);
         unsigned int max = 0;
-        for (VectorControlBlock& clause : formula) {
-            for (Lit& lit : clause.vector()) {
-                if (name[lit.var()] == 0) name[lit.var()] = max++;
-                lit = Lit(name[lit.var()], lit.sign());
-            }
+        for (Lit& lit : literals) {
+            if (name[lit.var()] == 0) name[lit.var()] = max++;
+            lit = Lit(name[lit.var()], lit.sign());
         }
         variables = max;
     }
@@ -106,6 +72,7 @@ class PointerlessCNFFormula {
     void readDimacsFromFile(const char* filename) {
         StreamBuffer in(filename);
         Cl clause;
+        // TODO Timon: literals.reserve, clauses.reserve
         while (in.skipWhitespace()) {
             if (*in == 'p' || *in == 'c') {
                 if (!in.skipLine()) break;
@@ -115,6 +82,7 @@ class PointerlessCNFFormula {
                     if (plit == 0) break;
                     clause.push_back(Lit(abs(plit), plit < 0));
                 }
+                // TODO Timon: avoid double allocation
                 readClause(clause.begin(), clause.end());
                 clause.clear();
             }
@@ -133,17 +101,17 @@ class PointerlessCNFFormula {
 
     template <typename Iterator>
     void readClause(Iterator begin, Iterator end) {
-        formula.push_back({});
-        Cl& clause = formula.back().vector();
-        clause = Cl { begin, end };
-        if (clause.size() > 0) {
+        const unsigned size = end - begin;
+        if (size > 0) {
+            literals.insert(literals.end(), begin, end);
             // remove redundant literals
-            std::sort(clause.begin(), clause.end());
+            std::sort(literals.end() - size, literals.end());
             unsigned dup = 0;
-            for (auto it = clause.begin(), jt = clause.begin()+1; jt != clause.end(); ++jt) {
+            const auto begin = literals.end() - size
+            for (auto it = begin, jt = begin + 1; jt != literals.end(); ++jt) {
                 if (*it != *jt) {  // unique
                     if (it->var() == jt->var()) {
-                        formula.pop_back();
+                        literals.resize(literals.size() - size);
                         return;  // no tautologies
                     }
                     ++it;
@@ -152,9 +120,11 @@ class PointerlessCNFFormula {
                     ++dup;
                 }
             }
-            clause.resize(clause.size() - dup);
-            clause.shrink_to_fit();
-            variables = std::max(variables, (unsigned int)clause.back().var());
+            literals.resize(literals.size() - dup);
+            clauses.push_back({
+                    (unsigned) literals.size() - size,
+                    (unsigned) literals.size()});
+            variables = std::max(variables, (unsigned int)literals.back().var());
         }
     }
 };
