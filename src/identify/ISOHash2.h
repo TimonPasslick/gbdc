@@ -46,6 +46,7 @@ namespace CNF {
             int n;
             void flip() { std::swap(p, n); }
             bool operator < (PN o) const { return n != o.n ? n < o.n : p < o.p; }
+            bool operator == (PN o) const { return p == o.p && n == o.n; }
         };
         enum Bool3 : unsigned {
             no = (unsigned) 0 << 30,
@@ -59,6 +60,11 @@ namespace CNF {
         };
         std::vector<Var> vars;
         std::vector<int> order; // var numbers partially ordered by isometry
+        struct TieCount {
+            unsigned rank;
+            unsigned count;
+        };
+        std::vector<TieCount> var_ties; 
         PointerlessCNFFormula cnf(filename);
 
         // find canonical polarities (if they exist)
@@ -85,8 +91,19 @@ namespace CNF {
         });
         // rank access
         assert(order.size() <= Bool3::yes);
-        for (unsigned i = 0; i < order.size(); ++i)
-            vars[order[i]].rank |= i;
+        PN cmp = vars[order[0]].pn;
+        unsigned equal = 0u - 1u; // overflow arithmetic is defined for unsigned
+        for (unsigned i = 0; i < order.size(); ++i) {
+            Var& var = vars[order[i]];
+            if (var.pn == cmp) ++equal;
+            else {
+                if (equal >= 1)
+                    var_ties.push_back({i - 1u - equal, equal});
+                cmp = var.pn;
+                equal = 0;
+            }
+            var.rank |= i - equal;
+        }
 
         // formula transformation
         // literal transformation
@@ -120,10 +137,14 @@ namespace CNF {
         const auto hash = [&md5](unsigned x) {
             md5.consume(reinterpret_cast<char*>(&x), sizeof(unsigned));
         };
+        for (const TieCount var_tie : var_ties) {
+            hash(var_tie.rank);
+            hash(var_tie.count);
+        }
         for (const auto& slice : cnf.clauses) {
+            hash(Bool3::maybe | Bool3::yes); // separator
             for (int i = slice.begin; i < slice.end; ++i)
                 hash(cnf.literals[i].x);
-            hash(Bool3::maybe | Bool3::yes); // separator
         }
         return md5.produce();
     }
