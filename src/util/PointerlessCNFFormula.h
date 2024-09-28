@@ -71,7 +71,6 @@ struct PointerlessCNFFormula {
 
     void readDimacsFromFile(const char* filename) {
         StreamBuffer in(filename);
-        Cl clause;
         // TODO Timon: literals.reserve, clauses.reserve
         while (in.skipWhitespace()) {
             if (*in == 'p' || *in == 'c') {
@@ -80,11 +79,9 @@ struct PointerlessCNFFormula {
                 int plit;
                 while (in.readInteger(&plit)) {
                     if (plit == 0) break;
-                    clause.push_back(Lit(abs(plit), plit < 0));
+                    literals.push_back(Lit(abs(plit), plit < 0));
                 }
-                // TODO Timon: avoid double allocation
-                readClause(clause.begin(), clause.end());
-                clause.clear();
+                readAppendedClause();
             }
         }
     }
@@ -101,9 +98,18 @@ struct PointerlessCNFFormula {
 
     template <typename Iterator>
     void readClause(Iterator begin, Iterator end) {
+        literals.insert(literals.end(), begin, end);
+        readAppendedClause();
+    }
+
+    // expects appended literals only
+    // makes the clause entry itself and updates the variable counter
+    // sorts the literals, eliminates duplicates, removes tautology clauses
+    void readAppendedClause() {
+        const auto begin = literals.begin() + clauses.back().end;
+        const auto end = literals.end();
         const unsigned size = end - begin;
         if (size > 0) {
-            literals.insert(literals.end(), begin, end);
             // remove redundant literals
             std::sort(literals.end() - size, literals.end());
             unsigned dup = 0;
