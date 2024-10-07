@@ -27,7 +27,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "lib/md5/md5.h"
 
-#include "src/util/PointerlessCNFFormula.h"
+#include "src/util/CNFFormula.h"
 
 
 namespace CNF {
@@ -41,111 +41,69 @@ namespace CNF {
      */
     std::string isohash2(const char* filename) {
         // data structures
-        struct PN {
-            int p;
-            int n;
-            void flip() { std::swap(p, n); }
-            bool operator < (PN o) const { return n != o.n ? n < o.n : p < o.p; }
-            bool operator == (PN o) const { return p == o.p && n == o.n; }
-        };
-        enum Bool3 : unsigned {
-            no = (unsigned) 0 << 30,
-            yes = (unsigned) 1 << 30,
-            maybe = (unsigned) 1 << 31,
-        };
         struct Var {
-            PN pn;
-            // rank in isometrical order, Bool3 if it's flipped in first 2 bits
-            unsigned rank;
+            int n;
+            int p;
+            void flip() { std::swap(p, n); }
+            bool operator < (Var o) const { return n != o.n ? n < o.n : p < o.p; }
+            bool operator != (Var o) const { return n != o.n && p != o.p; }
         };
         std::vector<Var> vars;
-        std::vector<int> order; // var numbers partially ordered by isometry
-        struct TieCount {
-            unsigned rank;
-            unsigned count;
-        };
-        std::vector<TieCount> var_ties; 
-        PointerlessCNFFormula cnf(filename);
+        std::vector<std::vector<Var>*> normal_form;
+        CNFFormula cnf(filename);
 
-        // find canonical polarities (if they exist)
-        vars.resize(cnf.variables);
-        for (const Lit lit : cnf.literals) {
-            Var& var = vars[lit.var() - 1];
-            if (lit.sign()) ++var.pn.n;
-            else ++var.pn.p;
-        }
-        for (Var& var : vars) {
-            if (var.pn.n > var.pn.p) {
-                var.rank = Bool3::yes;
-                var.pn.flip();
-            } else if (var.pn.p > var.pn.n) var.rank = Bool3::no;
-            else var.rank = Bool3::maybe;
-        }
-
-        // isohash1 order
-        order.resize(vars.size());
-        for (int i = 0; i < order.size(); ++i)
-            order[i] = i;
-        std::sort(order.begin(), order.end(), [&vars](const int a, const int b) {
-            return vars[a].pn < vars[b].pn;
-        });
-        // rank access
-        assert(order.size() <= Bool3::yes);
-        PN cmp = vars[order[0]].pn;
-        unsigned equal = 0u - 1u; // overflow arithmetic is defined for unsigned
-        for (unsigned i = 0; i < order.size(); ++i) {
-            Var& var = vars[order[i]];
-            if (var.pn == cmp) ++equal;
-            else {
-                if (equal >= 1)
-                    var_ties.push_back({i - 1u - equal, equal});
-                cmp = var.pn;
-                equal = 0;
+        vars.resize(cnf.nVars());
+        for (const Cl* cl : cnf) {
+            for (const Lit lit : *cl) {
+                Var& var = vars[lit.var() - 1];
+                if (lit.sign()) ++var.n;
+                else ++var.p;
             }
-            var.rank |= i - equal;
         }
+
+        for (Var& var : vars)
+            if (var.n > var.p)
+                var.flip();
 
         // formula transformation
         // literal transformation
-        for (Lit& lit : cnf.literals) {
-            const bool sign = lit.sign();
-            lit.x = vars[lit.var() - 1].rank;
-            if (sign && lit.x & Bool3::maybe == 0) lit.x ^= Bool3::yes;
+        for (const Cl* cl : cnf) {
+            normal_form.push_back(new std::vector<Var>);
+            for (const Lit lit : *cl) {
+                auto& normal_cl = *normal_form.back();
+                normal_cl.push_back(vars[lit.var() - 1]);
+                if (lit.sign())
+                    normal_cl.back().flip(); // flip
+            }
         }
         // clause sorting
-        for (int i = 0; i < cnf.clauses.size(); ++i) {
-            const auto slice = cnf.clauses[i];
-            std::sort(
-                    cnf.literals.begin() + slice.begin,
-                    cnf.literals.begin() + slice.end);
-        }
+        for (auto* cl : normal_form)
+            std::sort(cl->begin(), cl->end());
         // formula sorting
-        std::sort(cnf.clauses.begin(), cnf.clauses.end(), [&cnf](const auto& asl, const auto& bsl) {
-            const unsigned asize = asl.end - asl.begin;
-            const unsigned bsize = bsl.end - bsl.begin;
-            if (asize != bsize) return asize < bsize;
-            for (int i = 0; i < asize; ++i) {
-                const Lit alit = cnf.literals[asl.begin + i];
-                const Lit blit = cnf.literals[bsl.begin + i];
-                if (alit != blit) return alit < blit;
-            }
+        std::sort(normal_form.begin(), normal_form.end(), [](const auto* a, const auto* b) {
+            if (a->size() != b->size()) return a->size() < b->size();
+            for (int i = 0; i < a->size(); ++i)
+                if ((*a)[i] != (*b)[i]) return (*a)[i] < (*b)[i];
             return false;
         });
 
         // hash
         MD5 md5;
-        const auto hash = [&md5](unsigned x) {
-            md5.consume(reinterpret_cast<char*>(&x), sizeof(unsigned));
+        const auto hash = [&md5](int x) {
+            md5.consume(reinterpret_cast<char*>(&x), sizeof(int));
         };
-        for (const TieCount var_tie : var_ties) {
-            hash(var_tie.rank);
-            hash(var_tie.count);
+        for (const auto* cl : normal_form) {
+            for (const Var var : *cl) {
+                hash(var.n);
+                hash(var.p);
+            }
+            hash(-1); // separator
         }
-        for (const auto& slice : cnf.clauses) {
-            hash(Bool3::maybe | Bool3::yes); // separator
-            for (int i = slice.begin; i < slice.end; ++i)
-                hash(cnf.literals[i].x);
-        }
+
+        // cleanup
+        for (const auto* cl : normal_form)
+            delete cl;
+
         return md5.produce();
     }
 } // namespace CNF
