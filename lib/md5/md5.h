@@ -28,6 +28,9 @@
 #ifndef LIB_MD5_MD5_H_
 #define LIB_MD5_MD5_H_
 
+#include <cstdint>
+#include <limits>
+
 /*
  * Size of a standard MD5 signature in bytes.  This definition is for
  * external programs only.  The MD5 routines themselves reference the
@@ -198,6 +201,30 @@ class MD5 {
         hasher.finish(sig);
         md5::sig_to_string(sig, str, sizeof(str));
         return std::string(str);
+    }
+
+    struct Signature {
+        unsigned char data[MD5_SIZE];
+
+        static_assert(MD5_SIZE == 2 * sizeof(std::uint64_t));
+        std::uint64_t& lower() {
+            return *reinterpret_cast<std::uint64_t*>(data);
+        }
+        std::uint64_t& upper() {
+            return *(reinterpret_cast<std::uint64_t*>(data) + 8);
+        }
+        // commutative hash combination
+        // https://kevinventullo.com/2018/12/24/hashing-unordered-sets-how-far-will-cleverness-take-you/
+        void operator += (Signature o) {
+            const bool carry = this->lower() > std::numeric_limits<std::uint64_t>::max() - o.lower();
+            this->lower() += o.lower();
+            this->upper() += o.upper() + carry;
+        }
+    };
+    Signature finish() {
+        Signature result;
+        hasher.finish(result.data);
+        return result;
     }
 };
 
