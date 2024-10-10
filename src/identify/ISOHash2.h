@@ -39,7 +39,7 @@ namespace CNF {
      * @param filename benchmark instance
      * @return std::string isohash2
      */
-    std::string isohash2(const char* filename) {
+    std::string isohash2plus(const int n, const char* filename) {
         // data structures
         struct Var {
             int n;
@@ -73,12 +73,60 @@ namespace CNF {
                 auto& normal_cl = *normal_form.back();
                 normal_cl.push_back(vars[lit.var() - 1]);
                 if (lit.sign())
-                    normal_cl.back().flip(); // flip
+                    normal_cl.back().flip();
             }
         }
         // clause sorting
         for (auto* cl : normal_form)
             std::sort(cl->begin(), cl->end());
+        // tie break hashing
+        if (n > 0) {
+            struct SigVar {
+                MD5::Signature n;
+                MD5::Signature p;
+                void flip() { std::swap(p, n); }
+                bool operator < (SigVar o) { return n != o.n ? n < o.n : p < o.p; }
+                bool operator != (SigVar o) { return n != o.n || p != o.p; }
+            };
+            std::vector<SigVar> sig_vars;
+            sig_vars.resize(cnf.nVars());
+            for (int i = 0; i < normal_form.size(); ++i) {
+                MD5 md5;
+                {
+                    const auto& cl = *normal_form[i];
+                    const auto hash = [&md5](int x) {
+                        md5.consume(reinterpret_cast<char*>(&x), sizeof(int));
+                    };
+                    for (const Var var : cl) {
+                        hash(var.n);
+                        hash(var.p);
+                    }
+                }
+                const auto sig = md5.finish();
+                const auto& cl = *cnf[i];
+                for (const Lit lit : cl) {
+                    SigVar& var = sig_vars[lit.var() - 1];
+                    if (lit.sign()) var.n += sig;
+                    else var.p += sig;
+                }
+                for (SigVar& var : sig_vars)
+                    if (var.n > var.p)
+                        var.flip();
+                std::vector<std::vector<SigVar>*> sig_normal_form;
+                for (const Cl* cl : cnf) {
+                    sig_normal_form.push_back(new std::vector<SigVar>);
+                    for (const Lit lit : *cl) {
+                        auto& normal_cl = *sig_normal_form.back();
+                        normal_cl.push_back(sig_vars[lit.var() - 1]);
+                        if (lit.sign())
+                            normal_cl.back().flip();
+                    }
+                }
+                for (auto* cl : sig_normal_form)
+                    std::sort(cl->begin(), cl->end());
+            }
+        }
+
         // formula sorting
         std::sort(normal_form.begin(), normal_form.end(), [](const auto* a, const auto* b) {
             if (a->size() != b->size()) return a->size() < b->size();
@@ -87,7 +135,7 @@ namespace CNF {
             return false;
         });
 
-        // hash
+        // normal form hashing
         MD5 md5;
         const auto hash = [&md5](int x) {
             md5.consume(reinterpret_cast<char*>(&x), sizeof(int));
