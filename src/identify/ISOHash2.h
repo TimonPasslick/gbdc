@@ -46,7 +46,7 @@ namespace CNF {
             int p;
             void flip() { std::swap(p, n); }
             bool operator < (Var o) const { return n != o.n ? n < o.n : p < o.p; }
-            bool operator != (Var o) const { return n != o.n && p != o.p; }
+            bool operator != (Var o) const { return n != o.n || p != o.p; }
         };
         std::vector<Var> vars;
         std::vector<std::vector<Var>*> normal_form;
