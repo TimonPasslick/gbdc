@@ -228,6 +228,15 @@ class MD5 {
             carry_down = ckd_add_to(&upper(), carry_up) || carry_down;
             lower() += carry_down;
         }
+        bool operator < (Signature o) {
+            return lower() != o.lower() ? lower() < o.lower() : upper() < o.upper();
+        }
+        bool operator > (Signature o) {
+            return lower() != o.lower() ? lower() > o.lower() : upper() > o.upper();
+        }
+        bool operator != (Signature o) {
+            return lower() != o.lower() || upper() != o.upper();
+        }
     };
     Signature finish() {
         Signature result;
