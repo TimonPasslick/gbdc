@@ -213,12 +213,20 @@ class MD5 {
         std::uint64_t& upper() {
             return *(reinterpret_cast<std::uint64_t*>(data) + 8);
         }
+        bool ckd_add_to(std::uint64_t* acc, const std::uint64_t x) {
+            const bool carry = *acc > std::numeric_limits<std::uint64_t>::max() - x;
+            *acc += x;
+            return carry;
+        }
         // commutative hash combination
         // https://kevinventullo.com/2018/12/24/hashing-unordered-sets-how-far-will-cleverness-take-you/
+        // The idea behind using + instead of ^ is that combining identical hashes leads to a left shift and not 0 (the neutral element).
+        // By carrying down instead of wrapping on overflow, I make this shift cyclical.
         void operator += (Signature o) {
-            const bool carry = this->lower() > std::numeric_limits<std::uint64_t>::max() - o.lower();
-            this->lower() += o.lower();
-            this->upper() += o.upper() + carry;
+            const bool carry_up = ckd_add_to(&lower(), o.lower());
+            bool carry_down = ckd_add_to(&upper(), o.upper());
+            carry_down = ckd_add_to(&upper(), carry_up) || carry_down;
+            lower() += carry_down;
         }
     };
     Signature finish() {
