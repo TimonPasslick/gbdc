@@ -195,6 +195,11 @@ class MD5 {
         hasher.process(str, length);
     }
 
+    template <typename T>
+    void consume_binary(const T& x) {
+        consume(reinterpret_cast<const char*>(&x), sizeof(T));
+    }
+
     std::string produce() {
         unsigned char sig[MD5_SIZE];
         char str[MD5_STRING_SIZE];
