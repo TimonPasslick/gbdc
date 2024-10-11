@@ -232,7 +232,8 @@ class MD5 {
             const bool carry_up = ckd_add_to(&lower(), o.lower());
             bool carry_down = ckd_add_to(&upper(), o.upper());
             carry_down = ckd_add_to(&upper(), carry_up) || carry_down;
-            lower() += carry_down;
+            const bool carry_up_again = ckd_add_to(&lower(), carry_down);
+            upper() += carry_up_again;
         }
         Signature& operator ++ () {
             Signature x {};
