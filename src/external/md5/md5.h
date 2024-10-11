@@ -210,8 +210,14 @@ class MD5 {
         std::uint64_t& lower() {
             return *reinterpret_cast<std::uint64_t*>(data);
         }
+        std::uint64_t lower() const {
+            return *reinterpret_cast<const std::uint64_t*>(data);
+        }
         std::uint64_t& upper() {
             return *(reinterpret_cast<std::uint64_t*>(data) + 8);
+        }
+        std::uint64_t upper() const {
+            return *(reinterpret_cast<const std::uint64_t*>(data) + 8);
         }
         bool ckd_add_to(std::uint64_t* acc, const std::uint64_t x) {
             const bool carry = *acc > std::numeric_limits<std::uint64_t>::max() - x;
@@ -228,13 +234,19 @@ class MD5 {
             carry_down = ckd_add_to(&upper(), carry_up) || carry_down;
             lower() += carry_down;
         }
-        bool operator < (Signature o) {
+        Signature& operator ++ () {
+            Signature x {};
+            x.upper() = 1;
+            *this += x;
+            return *this;
+        }
+        bool operator < (Signature o) const {
             return lower() != o.lower() ? lower() < o.lower() : upper() < o.upper();
         }
-        bool operator > (Signature o) {
+        bool operator > (Signature o) const {
             return lower() != o.lower() ? lower() > o.lower() : upper() > o.upper();
         }
-        bool operator != (Signature o) {
+        bool operator != (Signature o) const {
             return lower() != o.lower() || upper() != o.upper();
         }
     };
