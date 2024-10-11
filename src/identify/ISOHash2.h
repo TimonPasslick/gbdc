@@ -83,9 +83,9 @@ namespace CNF {
             MD5 md5;
             for (const auto* cl : normal_form) {
                 for (const Var var : *cl)
-                    md5.consume(reinterpret_cast<const char*>(&var), sizeof(Var));
+                    md5.consume_binary(var);
                 constexpr int separator = -1;
-                md5.consume(reinterpret_cast<const char*>(&separator), sizeof(int));
+                md5.consume_binary(separator);
             }
             return md5.produce();
         }
@@ -129,7 +129,7 @@ namespace CNF {
                 // clause hashing
                 MD5 md5;
                 for (const SigVar var : *normal_form[i])
-                    md5.consume(reinterpret_cast<const char*>(&var), sizeof(SigVar));
+                    md5.consume_binary(var);
                 const auto sig = md5.finish();
 
                 // variable hashing
