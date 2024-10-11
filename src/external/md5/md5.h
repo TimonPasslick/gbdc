@@ -237,18 +237,18 @@ class MD5 {
         }
         Signature& operator ++ () {
             Signature x {};
-            x.upper() = 1;
+            x.lower() = 1;
             *this += x;
             return *this;
         }
         bool operator < (Signature o) const {
-            return lower() != o.lower() ? lower() < o.lower() : upper() < o.upper();
+            return upper() != o.upper() ? upper() < o.upper() : lower() < o.lower();
         }
         bool operator > (Signature o) const {
-            return lower() != o.lower() ? lower() > o.lower() : upper() > o.upper();
+            return upper() != o.upper() ? upper() > o.upper() : lower() > o.lower();
         }
         bool operator != (Signature o) const {
-            return lower() != o.lower() || upper() != o.upper();
+            return upper() != o.upper() || lower() != o.lower();
         }
     };
     Signature finish() {
