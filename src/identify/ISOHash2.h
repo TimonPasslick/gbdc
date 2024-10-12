@@ -22,6 +22,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <algorithm>
 #include <list>
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -31,6 +33,15 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 
 namespace CNF {
+    struct Var {
+        int n;
+        int p;
+        void flip() { std::swap(p, n); }
+        bool operator < (Var o) const { return n != o.n ? n < o.n : p < o.p; }
+        bool operator != (Var o) const { return n != o.n || p != o.p; }
+    };
+    constexpr int separator = -1;
+
     template <typename Var>
     struct IHData {
         CNFFormula cnf;
@@ -61,15 +72,17 @@ namespace CNF {
                         normal_cl.back().flip();
                 }
             }
-            // clause sorting
-            for (auto* cl : normal_form)
-                std::sort(cl->begin(), cl->end());
         }
 
         ~IHData() {
             for (const auto* cl : normal_form)
                 delete cl;
         }
+
+        void sort_clauses() {
+            for (auto* cl : normal_form)
+                std::sort(cl->begin(), cl->end());
+        };
 
         std::string final_hash() {
             // formula sorting
@@ -84,12 +97,35 @@ namespace CNF {
             for (const auto* cl : normal_form) {
                 for (const Var var : *cl)
                     md5.consume_binary(var);
-                constexpr int separator = -1;
                 md5.consume_binary(separator);
             }
             return md5.produce();
         }
     };
+
+    std::string isohash2(const char* filename) {
+        IHData<Var> data(filename);
+        std::map<Var, std::set<Var>> normal_form;
+        for (const auto* cl : data.normal_form) {
+            for (int i = 0; i < cl->size(); ++i) {
+                for (int j = i + 1; j < cl->size(); ++j) {
+                    Var min = (*cl)[i];
+                    Var max = (*cl)[j];
+                    if (max < min)
+                        std::swap(min, max);
+                    normal_form[min].insert(max);
+                }
+            }
+        }
+        MD5 md5;
+        for (const auto& pair : normal_form) {
+            md5.consume_binary(pair.first);
+            for (const Var lit : pair.second)
+                md5.consume_binary(lit);
+            md5.consume_binary(separator);
+        }
+        return md5.produce();
+    }
 
     /**
      * @brief Hashsum of formula with variables transformed to rank in ordered degree sequence of literal incidence graph
@@ -97,20 +133,15 @@ namespace CNF {
      * - edge weight of 1/n ==> literal node degree = occurence count
      * - sign is preserved canonically if literal node degrees are equal
      * @param filename benchmark instance
-     * @return std::string isohash2
+     * @return std::string isohash3
      */
-    std::string isohash2(const char* filename) {
-        struct Var {
-            int n;
-            int p;
-            void flip() { std::swap(p, n); }
-            bool operator < (Var o) const { return n != o.n ? n < o.n : p < o.p; }
-            bool operator != (Var o) const { return n != o.n || p != o.p; }
-        };
-        return IHData<Var>(filename).final_hash();
+    std::string isohash3(const char* filename) {
+        IHData<Var> data(filename);
+        data.sort_clauses();
+        return data.final_hash();
     }
 
-    std::string isohash3plus(const unsigned n, const char* filename) {
+    std::string isohash4plus(const unsigned n, const char* filename) {
         struct SigVar {
             MD5::Signature n;
             MD5::Signature p;
@@ -123,6 +154,7 @@ namespace CNF {
         auto& vars = data.vars;
         auto& normal_form = data.normal_form;
 
+        data.sort_clauses();
         for (int i = 0; i < n + 1; ++i) {
             // variable normalization
             for (int i = 0; i < normal_form.size(); ++i) {
@@ -153,9 +185,7 @@ namespace CNF {
                         var.flip();
                 }
             }
-            // clause sorting
-            for (auto* cl : normal_form)
-                std::sort(cl->begin(), cl->end());
+            data.sort_clauses();
         }
         return data.final_hash();
     }
