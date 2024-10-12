@@ -58,7 +58,6 @@ namespace CNF {
                     else ++var.p;
                 }
             }
-            // variable flipping
             for (Var& var : vars)
                 if (var.n > var.p)
                     var.flip();
@@ -84,6 +83,7 @@ namespace CNF {
                 std::sort(cl->begin(), cl->end());
         };
 
+        // expects sorted clauses
         std::string final_hash() {
             // formula sorting
             std::sort(normal_form.begin(), normal_form.end(), [](const auto* a, const auto* b) {
@@ -103,8 +103,17 @@ namespace CNF {
         }
     };
 
+    /**
+     * @brief Hashsum of literal interaction graph with variables transformed to degrees of literal incidence graph
+     * - literal nodes are grouped pairwise and the pair is sorted lexicographically
+     * - edge weight of 1/n ==> literal node degree = occurence count
+     * - sign is preserved canonically if literal node degrees are unequal
+     * @param filename benchmark instance
+     * @return std::string isohash3
+     */
     std::string isohash2(const char* filename) {
         IHData<Var> data(filename);
+        // LIG reduction
         std::map<Var, std::set<Var>> normal_form;
         for (const auto* cl : data.normal_form) {
             for (int i = 0; i < cl->size(); ++i) {
@@ -117,21 +126,22 @@ namespace CNF {
                 }
             }
         }
+        // normal form hashing
         MD5 md5;
         for (const auto& pair : normal_form) {
             md5.consume_binary(pair.first);
-            for (const Var lit : pair.second)
-                md5.consume_binary(lit);
+            for (const Var var : pair.second)
+                md5.consume_binary(var);
             md5.consume_binary(separator);
         }
         return md5.produce();
     }
 
     /**
-     * @brief Hashsum of formula with variables transformed to rank in ordered degree sequence of literal incidence graph
-     * - literal nodes are grouped pairwise and sorted lexicographically
+     * @brief Hashsum of formula with variables transformed to degrees of literal incidence graph
+     * - literal nodes are grouped pairwise and the pair is sorted lexicographically
      * - edge weight of 1/n ==> literal node degree = occurence count
-     * - sign is preserved canonically if literal node degrees are equal
+     * - sign is preserved canonically if literal node degrees are unequal
      * @param filename benchmark instance
      * @return std::string isohash3
      */
@@ -141,6 +151,16 @@ namespace CNF {
         return data.final_hash();
     }
 
+    /**
+     * @brief Hashsum of formula with variables transformed to degrees of literal incidence graph, then occurence clause hashes n+1 times
+     * First normal form:
+     * - literal nodes are grouped pairwise and the pair is sorted lexicographically
+     * - edge weight of 1/n ==> literal node degree = occurence count
+     * - sign is preserved canonically if literal node degrees are unequal
+     * Variable hashes aren't cleared between normal form iterations, but they are always canonical, so it's not necessary.
+     * @param filename benchmark instance
+     * @return std::string isohash3
+     */
     std::string isohash4plus(const unsigned n, const char* filename) {
         struct SigVar {
             MD5::Signature n;
@@ -171,7 +191,6 @@ namespace CNF {
                     else var.p += sig;
                 }
             }
-            // variable flipping
             for (SigVar& var : vars)
                 if (var.n > var.p)
                     var.flip();
