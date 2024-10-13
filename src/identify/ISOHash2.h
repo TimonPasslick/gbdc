@@ -40,7 +40,6 @@ namespace CNF {
         bool operator < (Var o) const { return n != o.n ? n < o.n : p < o.p; }
         bool operator != (Var o) const { return n != o.n || p != o.p; }
     };
-    constexpr int separator = -1;
 
     template <typename Var>
     struct IHData {
@@ -95,9 +94,9 @@ namespace CNF {
             // normal form hashing
             MD5 md5;
             for (const auto* cl : normal_form) {
+                md5.consume_binary(cl->size());
                 for (const Var var : *cl)
                     md5.consume_binary(var);
-                md5.consume_binary(separator);
             }
             return md5.produce();
         }
@@ -130,9 +129,9 @@ namespace CNF {
         MD5 md5;
         for (const auto& pair : normal_form) {
             md5.consume_binary(pair.first);
+            md5.consume_binary(pair.second.size());
             for (const Var var : pair.second)
                 md5.consume_binary(var);
-            md5.consume_binary(separator);
         }
         return md5.produce();
     }
