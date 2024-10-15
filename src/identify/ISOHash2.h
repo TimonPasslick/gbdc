@@ -69,10 +69,11 @@ namespace CNF {
         void iteration_step(const std::function<T(const int i)>& summand) {
             // variable normalization
             for (int i = 0; i < cnf.nClauses(); ++i) {
+                const auto s = summand(i);
                 for (const Lit lit : *cnf[i]) {
                     Var<T>& var = vars[lit.var() - 1];
-                    if (lit.sign()) var.n += summand(i);
-                    else var.p += summand(i);
+                    if (lit.sign()) var.n += s;
+                    else var.p += s;
                 }
             }
             for (Var<T>& var : vars)
