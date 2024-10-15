@@ -33,41 +33,59 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 
 namespace CNF {
+    template <typename T>
     struct Var {
-        int n;
-        int p;
+        T n;
+        T p;
         void flip() { std::swap(p, n); }
         bool operator < (Var o) const { return n != o.n ? n < o.n : p < o.p; }
         bool operator != (Var o) const { return n != o.n || p != o.p; }
     };
 
-    template <typename Var>
+    template <typename T> // needs to be flat, no pointers or heap data
+    MD5::Signature sort_and_hash(std::vector<T>* v) {
+        std::sort(v->begin(), v->end());
+        MD5 md5;
+        for (const T t : *v)
+            md5.consume_binary(t);
+        return md5.finish();
+    }
+
+    template <typename T>
     struct IHData {
         CNFFormula cnf;
-        std::vector<Var> vars;
-        std::vector<std::vector<Var>*> normal_form;
+        std::vector<Var<T>> vars;
+        std::vector<std::vector<Var<T>>*> normal_form;
 
         IHData(const char* filename) : cnf(filename) {
-            // variable normalization
             vars.resize(cnf.nVars());
-            for (const Cl* cl : cnf) {
-                for (const Lit lit : *cl) {
-                    Var& var = vars[lit.var() - 1];
-                    if (lit.sign()) ++var.n;
-                    else ++var.p;
+            normal_form.resize(cnf.nClauses());
+            for (int i = 0; i < cnf.nClauses(); ++i)
+                normal_form[i]->resize(cnf[i]->size());
+
+            iteration_step([](const int) { return 1; });
+        }
+
+        void iteration_step(const std::function<T(const int i)>& summand) {
+            // variable normalization
+            for (int i = 0; i < cnf.nClauses(); ++i) {
+                for (const Lit lit : *cnf[i]) {
+                    Var<T>& var = vars[lit.var() - 1];
+                    if (lit.sign()) var.n += summand(i);
+                    else var.p += summand(i);
                 }
             }
-            for (Var& var : vars)
+            for (Var<T>& var : vars)
                 if (var.n > var.p)
                     var.flip();
             // literal transformation
-            for (const Cl* cl : cnf) {
-                normal_form.push_back(new std::vector<Var>);
-                for (const Lit lit : *cl) {
-                    auto& normal_cl = *normal_form.back();
-                    normal_cl.push_back(vars[lit.var() - 1]);
+            for (int i = 0; i < cnf.nClauses(); ++i) {
+                for (int j = 0; j < cnf[i]->size(); ++i) {
+                    const Lit lit = (*cnf[i])[j];
+                    auto& var = (*normal_form[i])[j];
+                    var = vars[lit.var() - 1];
                     if (lit.sign())
-                        normal_cl.back().flip();
+                        var.flip();
                 }
             }
         }
@@ -76,22 +94,11 @@ namespace CNF {
             for (const auto* cl : normal_form)
                 delete cl;
         }
-
-        void sort_clauses() {
-            for (auto* cl : normal_form)
-                std::sort(cl->begin(), cl->end());
-        };
-
-        // expects sorted clauses
         std::string final_hash() {
-            // normal form hashing
             MD5::Signature result;
-            for (const auto* cl : normal_form) {
-                MD5 md5;
-                for (const Var var : *cl)
-                    md5.consume_binary(var);
-                result += md5.finish();
-            }
+            for (auto* cl : normal_form)
+                result += sort_and_hash(cl);
+
             char str[MD5_STRING_SIZE];
             md5::sig_to_string(result.data, str, sizeof(str));
             return std::string(str);
@@ -107,29 +114,8 @@ namespace CNF {
      * @return std::string isohash3
      */
     std::string isohash2(const char* filename) {
-        IHData<Var> data(filename);
-        // LIG reduction
-        std::map<Var, std::set<Var>> normal_form;
-        for (const auto* cl : data.normal_form) {
-            for (int i = 0; i < cl->size(); ++i) {
-                for (int j = i + 1; j < cl->size(); ++j) {
-                    Var min = (*cl)[i];
-                    Var max = (*cl)[j];
-                    if (max < min)
-                        std::swap(min, max);
-                    normal_form[min].insert(max);
-                }
-            }
-        }
-        // normal form hashing
-        MD5 md5;
-        for (const auto& pair : normal_form) {
-            md5.consume_binary(pair.first);
-            md5.consume_binary(pair.second.size());
-            for (const Var var : pair.second)
-                md5.consume_binary(var);
-        }
-        return md5.produce();
+        // TODO
+        return std::string();
     }
 
     /**
@@ -141,9 +127,7 @@ namespace CNF {
      * @return std::string isohash3
      */
     std::string isohash3(const char* filename) {
-        IHData<Var> data(filename);
-        data.sort_clauses();
-        return data.final_hash();
+        return IHData<int>(filename).final_hash();
     }
 
     /**
@@ -157,50 +141,12 @@ namespace CNF {
      * @return std::string isohash3
      */
     std::string isohash4plus(const unsigned n, const char* filename) {
-        struct SigVar {
-            MD5::Signature n;
-            MD5::Signature p;
-            void flip() { std::swap(p, n); }
-            bool operator < (SigVar o) const { return n != o.n ? n < o.n : p < o.p; }
-            bool operator != (SigVar o) const { return n != o.n || p != o.p; }
-        };
-        IHData<SigVar> data(filename);
-        auto& cnf = data.cnf;
-        auto& vars = data.vars;
+        IHData<MD5::Signature> data(filename);
         auto& normal_form = data.normal_form;
-
-        data.sort_clauses();
-        for (int i = 0; i < n + 1; ++i) {
-            // variable normalization
-            for (int i = 0; i < normal_form.size(); ++i) {
-                // clause hashing
-                MD5 md5;
-                for (const SigVar var : *normal_form[i])
-                    md5.consume_binary(var);
-                const auto sig = md5.finish();
-
-                // variable hashing
-                for (const Lit lit : *cnf[i]) {
-                    SigVar& var = vars[lit.var() - 1];
-                    if (lit.sign()) var.n += sig;
-                    else var.p += sig;
-                }
-            }
-            for (SigVar& var : vars)
-                if (var.n > var.p)
-                    var.flip();
-            // literal transformation
-            for (int i = 0; i < cnf.nClauses(); ++i) {
-                for (int j = 0; j < cnf[i]->size(); ++i) {
-                    const Lit lit = (*cnf[i])[j];
-                    SigVar& var = (*normal_form[i])[j];
-                    var = vars[lit.var() - 1];
-                    if (lit.sign())
-                        var.flip();
-                }
-            }
-            data.sort_clauses();
-        }
+        for (int i = 0; i < n + 1; ++i)
+            data.iteration_step([&normal_form](const int clause_index) {
+                return sort_and_hash(normal_form[clause_index]);
+            });
         return data.final_hash();
     }
 } // namespace CNF
