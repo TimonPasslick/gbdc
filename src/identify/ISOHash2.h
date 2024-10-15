@@ -109,7 +109,7 @@ namespace CNF {
     std::string isohash2(const char* filename) {
         IHData<Var> data(filename);
         // LIG reduction
-        std::map<Var, std::set<Var>> normal_form; //Weisfelder-Lehmann-Lemma
+        std::map<Var, std::set<Var>> normal_form;
         for (const auto* cl : data.normal_form) {
             for (int i = 0; i < cl->size(); ++i) {
                 for (int j = i + 1; j < cl->size(); ++j) {
