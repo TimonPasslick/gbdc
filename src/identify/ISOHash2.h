@@ -114,6 +114,7 @@ namespace CNF {
      */
     std::string isohash2(const char* filename) {
         // TODO
+        // unclear what I should do because first iteration of Weisfeiler-Leman on LIG is not isohash1, so it is not necessarily stronger
         return std::string();
     }
 
