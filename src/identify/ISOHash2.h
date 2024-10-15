@@ -84,21 +84,17 @@ namespace CNF {
 
         // expects sorted clauses
         std::string final_hash() {
-            // formula sorting
-            std::sort(normal_form.begin(), normal_form.end(), [](const auto* a, const auto* b) {
-                if (a->size() != b->size()) return a->size() < b->size();
-                for (int i = 0; i < a->size(); ++i)
-                    if ((*a)[i] != (*b)[i]) return (*a)[i] < (*b)[i];
-                return false;
-            });
             // normal form hashing
-            MD5 md5;
+            MD5::Signature result;
             for (const auto* cl : normal_form) {
-                md5.consume_binary(cl->size());
+                MD5 md5;
                 for (const Var var : *cl)
                     md5.consume_binary(var);
+                result += md5.finish();
             }
-            return md5.produce();
+            char str[MD5_STRING_SIZE];
+            md5::sig_to_string(result.data, str, sizeof(str));
+            return std::string(str);
         }
     };
 
@@ -113,7 +109,7 @@ namespace CNF {
     std::string isohash2(const char* filename) {
         IHData<Var> data(filename);
         // LIG reduction
-        std::map<Var, std::set<Var>> normal_form;
+        std::map<Var, std::set<Var>> normal_form; //Weisfelder-Lehmann-Lemma
         for (const auto* cl : data.normal_form) {
             for (int i = 0; i < cl->size(); ++i) {
                 for (int j = i + 1; j < cl->size(); ++j) {
