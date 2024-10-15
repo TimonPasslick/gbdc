@@ -195,7 +195,7 @@ class MD5 {
         hasher.process(str, length);
     }
 
-    template <typename T>
+    template <typename T> // needs to be flat, no pointers or heap data
     void consume_binary(const T& x) {
         consume(reinterpret_cast<const char*>(&x), sizeof(T));
     }
@@ -211,6 +211,10 @@ class MD5 {
     struct Signature {
         unsigned char data[MD5_SIZE];
 
+        Signature() {}
+        Signature(const std::uint64_t x) {
+            lower() = x;
+        }
         static_assert(MD5_SIZE == 2 * sizeof(std::uint64_t));
         std::uint64_t& lower() {
             return *reinterpret_cast<std::uint64_t*>(data);
@@ -241,9 +245,7 @@ class MD5 {
             upper() += carry_up_again;
         }
         Signature& operator ++ () {
-            Signature x {};
-            x.lower() = 1;
-            *this += x;
+            *this += 1;
             return *this;
         }
         bool operator < (Signature o) const {
