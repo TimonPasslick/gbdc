@@ -65,7 +65,10 @@ namespace CNF {
 
             iteration_step([](const int) { return 1; });
         }
-
+        ~IHData() {
+            for (const auto* cl : normal_form)
+                delete cl;
+        }
         void iteration_step(const std::function<T(const int i)>& summand) {
             // variable normalization
             for (int i = 0; i < cnf.nClauses(); ++i) {
@@ -89,11 +92,6 @@ namespace CNF {
                         var.flip();
                 }
             }
-        }
-
-        ~IHData() {
-            for (const auto* cl : normal_form)
-                delete cl;
         }
         std::string final_hash() {
             MD5::Signature result;
