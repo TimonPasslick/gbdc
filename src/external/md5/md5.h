@@ -228,7 +228,7 @@ class MD5 {
         std::uint64_t upper() const {
             return *(reinterpret_cast<const std::uint64_t*>(data) + 8);
         }
-        bool ckd_add_to(std::uint64_t* acc, const std::uint64_t x) {
+        static bool ckd_add_to(std::uint64_t* acc, const std::uint64_t x) {
             const bool carry = *acc > std::numeric_limits<std::uint64_t>::max() - x;
             *acc += x;
             return carry;
