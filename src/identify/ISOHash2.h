@@ -148,6 +148,11 @@ namespace CNF {
             });
         return data.final_hash();
     }
+
+    std::string isohash3plus(const unsigned n, const char* filename) {
+        if (n == 0) return isohash3(filename);
+        return isohash4plus(n - 1, filename);
+    }
 } // namespace CNF
 
 #endif  // ISOHASH2_H_
