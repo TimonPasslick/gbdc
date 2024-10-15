@@ -53,7 +53,7 @@ namespace CNF {
 
     template <typename T>
     struct IHData {
-        CNFFormula cnf;
+        const CNFFormula cnf;
         std::vector<Var<T>> vars;
         std::vector<std::vector<Var<T>>*> normal_form;
 
