@@ -70,7 +70,10 @@ namespace CNF {
                 delete cl;
         }
         void iteration_step(const std::function<T(const int i)>& summand) {
-            // variable normalization
+            normalize_variables(summand);
+            transform_literals();
+        }
+        void normalize_variables(const std::function<T(const int i)>& summand) {
             for (int i = 0; i < cnf.nClauses(); ++i) {
                 const auto s = summand(i);
                 for (const Lit lit : *cnf[i]) {
@@ -82,7 +85,8 @@ namespace CNF {
             for (Var<T>& var : vars)
                 if (var.n > var.p)
                     var.flip();
-            // literal transformation
+        }
+        void transform_literals() {
             for (int i = 0; i < cnf.nClauses(); ++i) {
                 for (int j = 0; j < cnf[i]->size(); ++i) {
                     const Lit lit = (*cnf[i])[j];
@@ -92,6 +96,13 @@ namespace CNF {
                         var.flip();
                 }
             }
+        }
+        std::string half_iteration_final_hash(const std::function<T(const int i)>& summand) {
+            normalize_variables(summand);
+            MD5 md5;
+            for (const Var<T> var : vars)
+                md5.consume_binary(var);
+            return md5.produce();
         }
         std::string final_hash() {
             MD5::Signature result;
@@ -143,10 +154,12 @@ namespace CNF {
     std::string isohash4plus(const unsigned n, const char* filename) {
         IHData<MD5::Signature> data(filename);
         auto& normal_form = data.normal_form;
-        for (int i = 0; i < n + 1; ++i)
-            data.iteration_step([&normal_form](const int clause_index) {
-                return sort_and_hash(normal_form[clause_index]);
-            });
+        const auto summand = [&normal_form](const int clause_index) {
+            return sort_and_hash(normal_form[clause_index]);
+        };
+        for (int i = 0; i < (n + 1) / 2; ++i)
+            data.iteration_step(summand);
+        if (n % 2 == 0) return data.half_iteration_final_hash(summand);
         return data.final_hash();
     }
 
