@@ -52,26 +52,37 @@ namespace CNF {
     }
 
     template <typename T>
-    struct IHData {
+    struct WLData {
         const CNFFormula cnf;
         std::vector<Var<T>> vars;
         std::vector<std::vector<Var<T>>*> normal_form;
 
-        IHData(const char* filename) : cnf(filename) {
+        WLData(const char* filename) : cnf(filename) {
             vars.resize(cnf.nVars());
             normal_form.resize(cnf.nClauses());
             for (int i = 0; i < cnf.nClauses(); ++i)
                 normal_form[i]->resize(cnf[i]->size());
 
-            iteration_step([](const int) { return 1; });
+            normalize_variables([](const int) { return 1; });
         }
-        ~IHData() {
+        ~WLData() {
             for (const auto* cl : normal_form)
                 delete cl;
         }
         void iteration_step(const std::function<T(const int i)>& summand) {
-            normalize_variables(summand);
             transform_literals();
+            normalize_variables(summand);
+        }
+        void transform_literals() {
+            for (int i = 0; i < cnf.nClauses(); ++i) {
+                for (int j = 0; j < cnf[i]->size(); ++i) {
+                    const Lit lit = (*cnf[i])[j];
+                    auto& var = (*normal_form[i])[j];
+                    var = vars[lit.var() - 1];
+                    if (lit.sign())
+                        var.flip();
+                }
+            }
         }
         void normalize_variables(const std::function<T(const int i)>& summand) {
             for (int i = 0; i < cnf.nClauses(); ++i) {
@@ -86,25 +97,14 @@ namespace CNF {
                 if (var.n > var.p)
                     var.flip();
         }
-        void transform_literals() {
-            for (int i = 0; i < cnf.nClauses(); ++i) {
-                for (int j = 0; j < cnf[i]->size(); ++i) {
-                    const Lit lit = (*cnf[i])[j];
-                    auto& var = (*normal_form[i])[j];
-                    var = vars[lit.var() - 1];
-                    if (lit.sign())
-                        var.flip();
-                }
-            }
-        }
-        std::string half_iteration_final_hash(const std::function<T(const int i)>& summand) {
-            normalize_variables(summand);
+        std::string final_hash() {
             MD5 md5;
             for (const Var<T> var : vars)
                 md5.consume_binary(var);
             return md5.produce();
         }
-        std::string final_hash() {
+        std::string half_iteration_final_hash() {
+            transform_literals();
             MD5::Signature result;
             for (auto* cl : normal_form)
                 result += sort_and_hash(cl);
@@ -116,56 +116,36 @@ namespace CNF {
     };
 
     /**
-     * @brief Hashsum of literal interaction graph with variables transformed to degrees of literal incidence graph
-     * - literal nodes are grouped pairwise and the pair is sorted lexicographically
-     * - edge weight of 1/n ==> literal node degree = occurence count
-     * - sign is preserved canonically if literal node degrees are unequal
+     * @brief Comparing Weisfeiler-Leman hashes with depth 2*h is approximately as strong as
+     * running the Weisfeiler-Leman algorithm on the literal hypergraph and stopping after h iterations.
+     * Runtime O(depth*nlogn), space O(n).
+     * Note that depth 0 is not exactly isohash because this algorithm hashes binary data directly and not strings.
      * @param filename benchmark instance
-     * @return std::string isohash3
+     * @return std::string Weisfeiler-Leman hash
+     */
+    std::string weisfeiler_leman_hash(const unsigned depth, const char* filename) {
+        if (depth == 0) return WLData<int>(filename).final_hash();
+        if (depth == 1) return WLData<int>(filename).half_iteration_final_hash();
+        WLData<MD5::Signature> data(filename);
+        auto& normal_form = data.normal_form;
+        const auto summand = [&normal_form](const int clause_index) {
+            return sort_and_hash(normal_form[clause_index]);
+        };
+        for (int i = 0; i < depth / 2; ++i)
+            data.iteration_step(summand);
+        if (depth % 2 == 0) return data.final_hash();
+        return data.half_iteration_final_hash();
+    }
+
+    /**
+     * @brief Like weisfeiler_leman_hash, but with the literal interaction graph.
+     * @param filename benchmark instance
+     * @return std::string isohash2
      */
     std::string isohash2(const char* filename) {
         // TODO
         // unclear what I should do because first iteration of Weisfeiler-Leman on LIG is not isohash1, so it is not necessarily stronger
         return std::string();
-    }
-
-    /**
-     * @brief Hashsum of formula with variables transformed to degrees of literal incidence graph
-     * - literal nodes are grouped pairwise and the pair is sorted lexicographically
-     * - edge weight of 1/n ==> literal node degree = occurence count
-     * - sign is preserved canonically if literal node degrees are unequal
-     * @param filename benchmark instance
-     * @return std::string isohash3
-     */
-    std::string isohash3(const char* filename) {
-        return IHData<int>(filename).final_hash();
-    }
-
-    /**
-     * @brief Hashsum of formula with variables transformed to degrees of literal incidence graph, then occurence clause hashes n+1 times
-     * First normal form:
-     * - literal nodes are grouped pairwise and the pair is sorted lexicographically
-     * - edge weight of 1/n ==> literal node degree = occurence count
-     * - sign is preserved canonically if literal node degrees are unequal
-     * Variable hashes aren't cleared between normal form iterations, but they are always canonical, so it's not necessary.
-     * @param filename benchmark instance
-     * @return std::string isohash3
-     */
-    std::string isohash4plus(const unsigned n, const char* filename) {
-        IHData<MD5::Signature> data(filename);
-        auto& normal_form = data.normal_form;
-        const auto summand = [&normal_form](const int clause_index) {
-            return sort_and_hash(normal_form[clause_index]);
-        };
-        for (int i = 0; i < (n + 1) / 2; ++i)
-            data.iteration_step(summand);
-        if (n % 2 == 0) return data.half_iteration_final_hash(summand);
-        return data.final_hash();
-    }
-
-    std::string isohash3plus(const unsigned n, const char* filename) {
-        if (n == 0) return isohash3(filename);
-        return isohash4plus(n - 1, filename);
     }
 } // namespace CNF
 
