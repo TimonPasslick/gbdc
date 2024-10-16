@@ -43,6 +43,12 @@ namespace CNF {
     };
 
     template <typename T> // needs to be flat, no pointers or heap data
+    MD5::Signature hash(const T t) {
+        MD5 md5;
+        md5.consume_binary(t);
+        return md5.finish();
+    }
+    template <typename T> // needs to be flat, no pointers or heap data
     MD5::Signature sort_and_hash(std::vector<T>* v) {
         std::sort(v->begin(), v->end());
         MD5 md5;
@@ -63,15 +69,15 @@ namespace CNF {
             for (int i = 0; i < cnf.nClauses(); ++i)
                 normal_form[i]->resize(cnf[i]->size());
 
-            normalize_variables([](const int) { return 1; });
+            normalize_variables([]() {}, [](const int) { return 1; });
         }
         ~WLData() {
             for (const auto* cl : normal_form)
                 delete cl;
         }
-        void iteration_step(const std::function<T(const int i)>& summand) {
+        void iteration_step(const std::function<void()>& preprocess_vars, const std::function<T(const int i)>& summand) {
             transform_literals();
-            normalize_variables(summand);
+            normalize_variables(preprocess_vars, summand);
         }
         void transform_literals() {
             for (int i = 0; i < cnf.nClauses(); ++i) {
@@ -84,7 +90,8 @@ namespace CNF {
                 }
             }
         }
-        void normalize_variables(const std::function<T(const int i)>& summand) {
+        void normalize_variables(const std::function<void()>& preprocess_vars, const std::function<T(const int i)>& summand) {
+            preprocess_vars();
             for (int i = 0; i < cnf.nClauses(); ++i) {
                 const auto s = summand(i);
                 for (const Lit lit : *cnf[i]) {
@@ -126,13 +133,26 @@ namespace CNF {
     std::string weisfeiler_leman_hash(const unsigned depth, const char* filename) {
         if (depth == 0) return WLData<int>(filename).final_hash();
         if (depth == 1) return WLData<int>(filename).half_iteration_final_hash();
+
         WLData<MD5::Signature> data(filename);
+
         auto& normal_form = data.normal_form;
         const auto summand = [&normal_form](const int clause_index) {
             return sort_and_hash(normal_form[clause_index]);
         };
+
+        auto& vars = data.vars;
+        const auto preprocess_vars = [&vars](){
+            for (Var<MD5::Signature>& var : vars) {
+                // double hash to avoid ambiguity with unit clauses
+                const MD5::Signature previous_color_hash = hash(hash(var));
+                var = {previous_color_hash, previous_color_hash};
+            }
+        };
+
         for (int i = 0; i < depth / 2; ++i)
-            data.iteration_step(summand);
+            data.iteration_step(preprocess_vars, summand);
+
         if (depth % 2 == 0) return data.final_hash();
         return data.half_iteration_final_hash();
     }
