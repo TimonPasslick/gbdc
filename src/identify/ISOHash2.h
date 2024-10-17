@@ -66,22 +66,22 @@ namespace CNF {
         WLData(const char* filename) : cnf(filename) {
             vars.resize(cnf.nVars());
             normal_form.resize(cnf.nClauses());
-            for (int i = 0; i < cnf.nClauses(); ++i)
+            for (unsigned i = 0; i < cnf.nClauses(); ++i)
                 normal_form[i]->resize(cnf[i]->size());
 
-            normalize_variables([]() {}, [](const int) { return 1; });
+            normalize_variables([]() {}, [](const unsigned) { return 1; });
         }
         ~WLData() {
             for (const auto* cl : normal_form)
                 delete cl;
         }
-        void iteration_step(const std::function<void()>& preprocess_vars, const std::function<T(const int i)>& summand) {
+        void iteration_step(const std::function<void()>& preprocess_vars, const std::function<T(const unsigned i)>& summand) {
             transform_literals();
             normalize_variables(preprocess_vars, summand);
         }
         void transform_literals() {
-            for (int i = 0; i < cnf.nClauses(); ++i) {
-                for (int j = 0; j < cnf[i]->size(); ++i) {
+            for (unsigned i = 0; i < cnf.nClauses(); ++i) {
+                for (unsigned j = 0; j < cnf[i]->size(); ++i) {
                     const Lit lit = (*cnf[i])[j];
                     auto& var = (*normal_form[i])[j];
                     var = vars[lit.var() - 1];
@@ -90,9 +90,9 @@ namespace CNF {
                 }
             }
         }
-        void normalize_variables(const std::function<void()>& preprocess_vars, const std::function<T(const int i)>& summand) {
+        void normalize_variables(const std::function<void()>& preprocess_vars, const std::function<T(const unsigned i)>& summand) {
             preprocess_vars();
-            for (int i = 0; i < cnf.nClauses(); ++i) {
+            for (unsigned i = 0; i < cnf.nClauses(); ++i) {
                 const auto s = summand(i);
                 for (const Lit lit : *cnf[i]) {
                     Var<T>& var = vars[lit.var() - 1];
@@ -138,7 +138,7 @@ namespace CNF {
         WLData<MD5::Signature> data(filename);
 
         auto& normal_form = data.normal_form;
-        const auto summand = [&normal_form](const int clause_index) {
+        const auto summand = [&normal_form](const unsigned clause_index) {
             return sort_and_hash(normal_form[clause_index]);
         };
 
@@ -151,7 +151,7 @@ namespace CNF {
             }
         };
 
-        for (int i = 0; i < depth / 2; ++i)
+        for (unsigned i = 0; i < depth / 2; ++i)
             data.iteration_step(preprocess_vars, summand);
 
         if (depth % 2 == 0) return data.final_hash();
