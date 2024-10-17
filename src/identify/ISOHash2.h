@@ -105,6 +105,7 @@ namespace CNF {
                     var.flip();
         }
         std::string final_hash() {
+            std::sort(vars.begin(), vars.end());
             MD5 md5;
             for (const Var<T> var : vars)
                 md5.consume_binary(var);
