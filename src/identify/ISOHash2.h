@@ -21,9 +21,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #define ISOHASH2_H_
 
 #include <algorithm>
-#include <list>
-#include <map>
-#include <set>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -32,130 +30,104 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "src/util/CNFFormula.h"
 
 
+namespace std {
+    string to_string(const MD5::Signature sig) {
+        char str[MD5_STRING_SIZE];
+        md5::sig_to_string(sig.data, str, sizeof(str));
+        return string(str);
+    }
+} // namespace std
+
 namespace CNF {
-    template <typename T>
-    struct Var {
-        T n;
-        T p;
-        void flip() { std::swap(p, n); }
-        bool operator < (Var o) const { return n != o.n ? n < o.n : p < o.p; }
-        bool operator != (Var o) const { return n != o.n || p != o.p; }
-    };
-
-    template <typename T> // needs to be flat, no pointers or heap data
-    MD5::Signature hash(const T t) {
-        MD5 md5;
-        md5.consume_binary(t);
-        return md5.finish();
-    }
-    template <typename T> // needs to be flat, no pointers or heap data
-    MD5::Signature sort_and_hash(std::vector<T>* v) {
-        std::sort(v->begin(), v->end());
-        MD5 md5;
-        for (const T t : *v)
-            md5.consume_binary(t);
-        return md5.finish();
-    }
-
-    template <typename T>
-    struct WLData {
+    struct WeisfeilerLemanHasher {
         const CNFFormula cnf;
-        std::vector<Var<T>> vars;
-        std::vector<std::vector<Var<T>>*> normal_form;
-
-        WLData(const char* filename) : cnf(filename) {
-            vars.resize(cnf.nVars());
-            normal_form.resize(cnf.nClauses());
-            for (unsigned i = 0; i < cnf.nClauses(); ++i)
-                normal_form[i]->resize(cnf[i]->size());
-
-            normalize_variables([]() {}, [](const unsigned) { return 1; });
-        }
-        ~WLData() {
-            for (const auto* cl : normal_form)
-                delete cl;
-        }
-        void iteration_step(const std::function<void()>& preprocess_vars, const std::function<T(const unsigned i)>& summand) {
-            transform_literals();
-            normalize_variables(preprocess_vars, summand);
-        }
-        void transform_literals() {
-            for (unsigned i = 0; i < cnf.nClauses(); ++i) {
-                for (unsigned j = 0; j < cnf[i]->size(); ++i) {
-                    const Lit lit = (*cnf[i])[j];
-                    auto& var = (*normal_form[i])[j];
-                    var = vars[lit.var() - 1];
-                    if (lit.sign())
-                        var.flip();
-                }
+        using Hash = MD5::Signature;
+        struct LitColors {
+            Hash n;
+            Hash p;
+            void flip() { std::swap(n, p); }
+            Hash& operator [] (const bool i) { return reinterpret_cast<Hash*>(this)[i]; }
+            void cross_reference() {
+                const Hash ncr = hash(*this);
+                flip();
+                const Hash pcr = hash(*this);
+                n = ncr;
+                p = pcr;
             }
-        }
-        void normalize_variables(const std::function<void()>& preprocess_vars, const std::function<T(const unsigned i)>& summand) {
-            preprocess_vars();
-            for (unsigned i = 0; i < cnf.nClauses(); ++i) {
-                const auto s = summand(i);
-                for (const Lit lit : *cnf[i]) {
-                    Var<T>& var = vars[lit.var() - 1];
-                    if (lit.sign()) var.n += s;
-                    else var.p += s;
-                }
+            Hash final_hash() {
+                if (n > p) flip();
+                return hash(*this);
             }
-            for (Var<T>& var : vars)
-                if (var.n > var.p)
-                    var.flip();
+        };
+        struct ColorFunction {
+            std::vector<LitColors> colors;
+            Hash& operator () (const Lit lit) { return colors[lit.var() - 1][lit.sign()]; }
+        };
+        // old and new color function, swapping in each iteration
+        ColorFunction color_functions[2];
+        unsigned iteration = 0;
+
+        template <typename T> // needs to be flat, no pointers or heap data
+        static Hash hash(const T t) {
+            MD5 md5;
+            md5.consume_binary(t);
+            return md5.finish();
+        }
+        template <typename T>
+        static Hash hash_sum(const std::vector<T>& v, const std::function<Hash(const T&)> f) {
+            Hash h;
+            for (const T& t : v)
+                h += f(t);
+            return h;
+        }
+        ColorFunction& old_color() { return color_functions[iteration % 2]; }
+        ColorFunction& new_color() { return color_functions[(iteration + 1) % 2]; }
+
+        WeisfeilerLemanHasher(const char* filename) : cnf(filename) {
+            for (ColorFunction& c : color_functions)
+                c.colors.resize(cnf.nVars());
+            for (const Cl* cl : cnf)
+                for (const Lit l : *cl)
+                    ++new_color()(l);
+            ++iteration;
+        }
+        void iteration_step() {
+            for (unsigned i = 0; i < cnf.nVars(); ++i) {
+                LitColors& olc = old_color().colors[i];
+                olc.cross_reference();
+                LitColors& nlc = new_color().colors[i];
+                // hash to avoid collisions with unit clauses
+                nlc.n = hash(olc.n);
+                nlc.p = hash(olc.p);
+            }
+            for (const Cl* cl : cnf) {
+                // hash to keep clause structure
+                const Hash clh = hash(hash_sum<Lit>(*cl, old_color()));
+                for (const Lit lit : *cl)
+                    new_color()(lit) += clh;
+            }
+            ++iteration;
         }
         std::string final_hash() {
-            std::sort(vars.begin(), vars.end());
-            MD5 md5;
-            for (const Var<T> var : vars)
-                md5.consume_binary(var);
-            return md5.produce();
+            return std::to_string(hash_sum<LitColors>(old_color().colors, [](LitColors lc) { return lc.final_hash(); }));
         }
-        std::string half_iteration_final_hash() {
-            transform_literals();
-            MD5::Signature result;
-            for (auto* cl : normal_form)
-                result += sort_and_hash(cl);
-
-            char str[MD5_STRING_SIZE];
-            md5::sig_to_string(result.data, str, sizeof(str));
-            return std::string(str);
+        std::string operator () (const unsigned iterations) {
+            while (iteration <= iterations)
+                iteration_step();
+            return final_hash();
         }
     };
 
     /**
-     * @brief Comparing Weisfeiler-Leman hashes with depth 2*h is approximately as strong as
+     * @brief Comparing Weisfeiler-Leman hashes with h iterations is approximately as strong as
      * running the Weisfeiler-Leman algorithm on the literal hypergraph and stopping after h iterations.
-     * Runtime O(depth*nlogn), space O(n).
-     * Note that depth 0 is not exactly isohash because this algorithm hashes binary data directly and not strings.
+     * Runtime O(h*n), space O(n).
+     * Note that zero iterations do not conform to isohash directly because this algorithm uses a different hashing technique to achieve linear runtime.
      * @param filename benchmark instance
      * @return std::string Weisfeiler-Leman hash
      */
-    std::string weisfeiler_leman_hash(const unsigned depth, const char* filename) {
-        if (depth == 0) return WLData<int>(filename).final_hash();
-        if (depth == 1) return WLData<int>(filename).half_iteration_final_hash();
-
-        WLData<MD5::Signature> data(filename);
-
-        auto& normal_form = data.normal_form;
-        const auto summand = [&normal_form](const unsigned clause_index) {
-            return sort_and_hash(normal_form[clause_index]);
-        };
-
-        auto& vars = data.vars;
-        const auto preprocess_vars = [&vars](){
-            for (Var<MD5::Signature>& var : vars) {
-                // double hash to avoid ambiguity with unit clauses
-                const MD5::Signature previous_color_hash = hash(hash(var));
-                var = {previous_color_hash, previous_color_hash};
-            }
-        };
-
-        for (unsigned i = 0; i < depth / 2; ++i)
-            data.iteration_step(preprocess_vars, summand);
-
-        if (depth % 2 == 0) return data.final_hash();
-        return data.half_iteration_final_hash();
+    std::string weisfeiler_leman_hash(const unsigned iterations, const char* filename) {
+        return WeisfeilerLemanHasher(filename)(iterations);
     }
 
     /**
