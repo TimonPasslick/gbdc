@@ -73,10 +73,10 @@ namespace CNF {
             md5.consume_binary(t);
             return md5.finish();
         }
-        template <typename T>
-        static Hash hash_sum(const std::vector<T>& v, const std::function<Hash(const T&)> f) {
+        template <typename T, typename C>
+        static Hash hash_sum(const C& c, const std::function<Hash(const T&)> f) {
             Hash h;
-            for (const T& t : v)
+            for (const T& t : c)
                 h += f(t);
             return h;
         }
@@ -91,6 +91,9 @@ namespace CNF {
                     ++new_color()(l);
             ++iteration;
         }
+        Hash clause_hash(const Cl* cl) {
+            return hash(hash_sum<Lit>(*cl, old_color()));
+        }
         void iteration_step() {
             for (unsigned i = 0; i < cnf.nVars(); ++i) {
                 LitColors& olc = old_color().colors[i];
@@ -102,32 +105,38 @@ namespace CNF {
             }
             for (const Cl* cl : cnf) {
                 // hash to keep clause structure
-                const Hash clh = hash(hash_sum<Lit>(*cl, old_color()));
+                const Hash clh = clause_hash(cl);
                 for (const Lit lit : *cl)
                     new_color()(lit) += clh;
             }
             ++iteration;
         }
-        std::string final_hash() {
-            return std::to_string(hash_sum<LitColors>(old_color().colors, [](LitColors lc) { return lc.final_hash(); }));
+        Hash variable_hash() {
+            return hash_sum<LitColors>(old_color().colors, [](LitColors lc) { return lc.final_hash(); });
         }
-        std::string operator () (const unsigned iterations) {
-            while (iteration <= iterations)
+        Hash cnf_hash() {
+            for (LitColors& lc : old_color().colors)
+                lc.cross_reference();
+            return hash_sum<Cl*>(cnf, [this](const Cl* cl) { return clause_hash(cl); });
+        }
+        std::string operator () (const unsigned depth) {
+            while (iteration <= depth / 2)
                 iteration_step();
-            return final_hash();
+            const Hash h = depth % 2 == 0 ? variable_hash() : cnf_hash();
+            return std::to_string(h);
         }
     };
 
     /**
-     * @brief Comparing Weisfeiler-Leman hashes with h iterations is approximately as strong as
-     * running the Weisfeiler-Leman algorithm on the literal hypergraph and stopping after h iterations.
+     * @brief Comparing Weisfeiler-Leman hashes with depth 2h is approximately as strong as
+     * running the Weisfeiler-Leman algorithm on the literal hypergraph and stopping after h+1 iterations.
      * Runtime O(h*n), space O(n).
      * Note that zero iterations do not conform to isohash directly because this algorithm uses a different hashing technique to achieve linear runtime.
      * @param filename benchmark instance
      * @return std::string Weisfeiler-Leman hash
      */
-    std::string weisfeiler_leman_hash(const unsigned iterations, const char* filename) {
-        return WeisfeilerLemanHasher(filename)(iterations);
+    std::string weisfeiler_leman_hash(const unsigned depth, const char* filename) {
+        return WeisfeilerLemanHasher(filename)(depth);
     }
 
     /**
