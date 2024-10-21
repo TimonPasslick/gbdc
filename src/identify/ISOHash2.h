@@ -54,7 +54,7 @@ namespace CNF {
                 n = ncr;
                 p = pcr;
             }
-            Hash final_hash() {
+            Hash variable_hash() {
                 if (n > p) flip();
                 return hash(*this);
             }
@@ -112,7 +112,7 @@ namespace CNF {
             ++iteration;
         }
         Hash variable_hash() {
-            return hash_sum<LitColors>(old_color().colors, [](LitColors lc) { return lc.final_hash(); });
+            return hash_sum<LitColors>(old_color().colors, [](LitColors lc) { return lc.variable_hash(); });
         }
         Hash cnf_hash() {
             for (LitColors& lc : old_color().colors)
