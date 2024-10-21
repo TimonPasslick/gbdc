@@ -92,6 +92,7 @@ namespace CNF {
             ++iteration;
         }
         Hash clause_hash(const Cl* cl) {
+            // hash again to preserve clause structure and avoid collisions of unit clauses with old color
             return hash(hash_sum<Lit>(*cl, old_color()));
         }
         void iteration_step() {
@@ -99,12 +100,9 @@ namespace CNF {
                 LitColors& olc = old_color().colors[i];
                 olc.cross_reference();
                 LitColors& nlc = new_color().colors[i];
-                // hash to avoid collisions with unit clauses
-                nlc.n = hash(olc.n);
-                nlc.p = hash(olc.p);
+                nlc = olc;
             }
             for (const Cl* cl : cnf) {
-                // hash to keep clause structure
                 const Hash clh = clause_hash(cl);
                 for (const Lit lit : *cl)
                     new_color()(lit) += clh;
