@@ -234,9 +234,9 @@ class MD5 {
             return carry;
         }
         // commutative hash combination
-        // https://kevinventullo.com/2018/12/24/hashing-unordered-sets-how-far-will-cleverness-take-you/
         // The idea behind using + instead of ^ is that combining identical hashes leads to a left shift and not 0 (the neutral element).
-        // By carrying down instead of wrapping on overflow, I make this shift cyclical.
+        // By carrying down instead of wrapping on overflow, I make this shift cyclical and the only way to reach 0 becomes 0+0.
+        // The existence of a 0 is unavoidable: https://kevinventullo.com/2018/12/24/hashing-unordered-sets-how-far-will-cleverness-take-you/
         void operator += (Signature o) {
             const bool carry_up = ckd_add_to(&lower(), o.lower());
             bool carry_down = ckd_add_to(&upper(), o.upper());
