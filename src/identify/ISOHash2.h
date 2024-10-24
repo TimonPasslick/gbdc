@@ -22,7 +22,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <algorithm>
 #include <functional>
-#include <string>
 #include <vector>
 
 #include "src/external/md5/md5.h"
@@ -53,6 +52,7 @@ namespace CNF {
         };
         struct ColorFunction {
             std::vector<LitColors> colors;
+            explicit ColorFunction(const std::size_t n) : colors(n, LitColors {1, 1}) {}
             Hash& operator () (const Lit lit) { return colors[lit.var() - 1][lit.sign()]; }
         };
         // old and new color function, swapping in each iteration
@@ -75,24 +75,22 @@ namespace CNF {
         ColorFunction& old_color() { return color_functions[iteration % 2]; }
         ColorFunction& new_color() { return color_functions[(iteration + 1) % 2]; }
 
-        WeisfeilerLemanHasher(const char* filename) : cnf(filename) {
-            for (ColorFunction& c : color_functions)
-                c.colors.resize(cnf.nVars());
-            for (const Cl* cl : cnf)
-                for (const Lit l : *cl)
-                    ++new_color()(l);
-            ++iteration;
-        }
+        WeisfeilerLemanHasher(const char* filename)
+                : cnf(filename)
+                , color_functions {ColorFunction(cnf.nVars()), ColorFunction(cnf.nVars())}
+        {}
         Hash clause_hash(const Cl* cl) {
             // hash again to preserve clause structure and avoid collisions of unit clauses with old color
             return hash(hash_sum<Lit>(*cl, old_color()));
         }
         void iteration_step() {
-            for (unsigned i = 0; i < cnf.nVars(); ++i) {
-                LitColors& olc = old_color().colors[i];
-                olc.cross_reference();
-                LitColors& nlc = new_color().colors[i];
-                nlc = olc;
+            if (iteration > 0) {
+                for (unsigned i = 0; i < cnf.nVars(); ++i) {
+                    LitColors& olc = old_color().colors[i];
+                    olc.cross_reference();
+                    LitColors& nlc = new_color().colors[i];
+                    nlc = olc;
+                }
             }
             for (const Cl* cl : cnf) {
                 const Hash clh = clause_hash(cl);
@@ -110,7 +108,7 @@ namespace CNF {
             return hash_sum<Cl*>(cnf, [this](const Cl* cl) { return clause_hash(cl); });
         }
         std::string operator () (const unsigned depth) {
-            while (iteration <= depth / 2)
+            while (iteration < depth / 2)
                 iteration_step();
             const Hash h = depth % 2 == 0 ? variable_hash() : cnf_hash();
             return std::to_string(h);
@@ -119,7 +117,7 @@ namespace CNF {
 
     /**
      * @brief Comparing Weisfeiler-Leman hashes with depth 2h is approximately as strong as
-     * running the Weisfeiler-Leman algorithm on the literal hypergraph and stopping after h+1 iterations.
+     * running the Weisfeiler-Leman algorithm on the literal hypergraph and stopping after h iterations.
      * Runtime O(h*n), space O(n).
      * Note that zero iterations do not conform to isohash directly because this algorithm uses a different hashing technique to achieve linear runtime.
      * @param filename benchmark instance
