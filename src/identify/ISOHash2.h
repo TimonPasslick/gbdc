@@ -30,14 +30,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "src/util/CNFFormula.h"
 
 
-namespace std {
-    string to_string(const MD5::Signature sig) {
-        char str[MD5_STRING_SIZE];
-        md5::sig_to_string(sig.data, str, sizeof(str));
-        return string(str);
-    }
-} // namespace std
-
 namespace CNF {
     struct WeisfeilerLemanHasher {
         const CNFFormula cnf;
