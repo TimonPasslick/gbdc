@@ -30,6 +30,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <string>
 
 /*
  * Size of a standard MD5 signature in bytes.  This definition is for
@@ -258,6 +259,14 @@ class MD5 {
         return result;
     }
 };
+
+namespace std {
+    inline string to_string(const MD5::Signature sig) {
+        char str[MD5_STRING_SIZE];
+        md5::sig_to_string(sig.data, str, sizeof(str));
+        return string(str);
+    }
+} // namespace std
 
 
 #endif  // LIB_MD5_MD5_H_
