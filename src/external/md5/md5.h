@@ -245,10 +245,6 @@ class MD5 {
             const bool carry_up_again = ckd_add_to(&lower(), carry_down);
             upper() += carry_up_again;
         }
-        Signature& operator ++ () {
-            *this += 1;
-            return *this;
-        }
         bool operator > (Signature o) const {
             return upper() != o.upper() ? upper() > o.upper() : lower() > o.lower();
         }
