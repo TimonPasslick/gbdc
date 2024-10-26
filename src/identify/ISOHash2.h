@@ -53,7 +53,7 @@ namespace CNF {
         struct ColorFunction {
             std::vector<LitColors> colors;
             explicit ColorFunction(const std::size_t n) : colors(n, LitColors {1, 1}) {}
-            Hash& operator () (const Lit lit) { return reinterpret_cast<Hash*>(&colors[0])[lit - 2]; }
+            Hash& operator () (const Lit lit) { return reinterpret_cast<Hash*>(&colors[0])[lit]; }
         };
         // old and new color function, swapping in each iteration
         ColorFunction color_functions[2];
