@@ -35,10 +35,9 @@ namespace CNF {
         using Hash = MD5::Signature;
         using Clause = PointerlessCNFFormula::Clause;
         struct LitColors {
-            Hash n;
             Hash p;
+            Hash n;
             void flip() { std::swap(n, p); }
-            Hash& operator [] (const bool i) { return reinterpret_cast<Hash*>(this)[i]; }
             void cross_reference() {
                 const Hash ncr = hash(*this);
                 flip();
@@ -54,7 +53,7 @@ namespace CNF {
         struct ColorFunction {
             std::vector<LitColors> colors;
             explicit ColorFunction(const std::size_t n) : colors(n, LitColors {1, 1}) {}
-            Hash& operator () (const Lit lit) { return colors[lit.var() - 1][lit.sign()]; }
+            Hash& operator () (const Lit lit) { return reinterpret_cast<Hash*>(&colors[0])[lit - 2]; }
         };
         // old and new color function, swapping in each iteration
         ColorFunction color_functions[2];
