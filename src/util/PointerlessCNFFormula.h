@@ -59,6 +59,9 @@ class PointerlessCNFFormula {
         inline It end() const {
             return end_;
         }
+        std::size_t size() const {
+            return end_ - begin_;
+        }
     };
     struct ClauseIt {
         std::vector<unsigned>::const_iterator lower_clause_bound;
