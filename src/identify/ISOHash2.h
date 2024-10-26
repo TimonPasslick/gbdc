@@ -26,13 +26,14 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "src/external/md5/md5.h"
 
-#include "src/util/CNFFormula.h"
+#include "src/util/PointerlessCNFFormula.h"
 
 
 namespace CNF {
     struct WeisfeilerLemanHasher {
-        const CNFFormula cnf;
+        const PointerlessCNFFormula cnf;
         using Hash = MD5::Signature;
+        using Clause = PointerlessCNFFormula::Clause;
         struct LitColors {
             Hash n;
             Hash p;
@@ -79,9 +80,9 @@ namespace CNF {
                 : cnf(filename)
                 , color_functions {ColorFunction(cnf.nVars()), ColorFunction(cnf.nVars())}
         {}
-        Hash clause_hash(const Cl* cl) {
+        Hash clause_hash(const Clause cl) {
             // hash again to preserve clause structure and avoid collisions of unit clauses with old color
-            return hash(hash_sum<Lit>(*cl, old_color()));
+            return hash(hash_sum<Lit>(cl, old_color()));
         }
         void iteration_step() {
             if (iteration > 0) {
@@ -92,9 +93,9 @@ namespace CNF {
                     nlc = olc;
                 }
             }
-            for (const Cl* cl : cnf) {
+            for (const Clause cl : cnf.clauses()) {
                 const Hash clh = clause_hash(cl);
-                for (const Lit lit : *cl)
+                for (const Lit lit : cl)
                     new_color()(lit) += clh;
             }
             ++iteration;
@@ -105,7 +106,7 @@ namespace CNF {
         Hash cnf_hash() {
             for (LitColors& lc : old_color().colors)
                 lc.cross_reference();
-            return hash_sum<Cl*>(cnf, [this](const Cl* cl) { return clause_hash(cl); });
+            return hash_sum<Clause>(cnf.clauses(), [this](const Clause cl) { return clause_hash(cl); });
         }
         std::string operator () (const unsigned depth) {
             while (iteration < depth / 2)
