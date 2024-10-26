@@ -31,7 +31,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 class PointerlessCNFFormula {
     std::vector<unsigned> clause_bounds;
     std::vector<Lit> literals;
-    For formula;
     unsigned variables;
 
  public:
