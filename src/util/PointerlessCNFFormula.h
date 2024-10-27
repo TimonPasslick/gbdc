@@ -99,10 +99,11 @@ class PointerlessCNFFormula {
     // create gapless representation of variables
     void normalizeVariableNames() {
         std::vector<unsigned> name;
-        name.resize(variables+1, 0);
-        unsigned int max = 0;
+        constexpr unsigned empty = ~0U;
+        name.resize(variables+1, empty);
+        unsigned max = 0;
         for (Lit& lit : literals) {
-            if (name[lit.var()] == 0) name[lit.var()] = max++;
+            if (name[lit.var()] == empty) name[lit.var()] = max++;
             lit = Lit(name[lit.var()], lit.sign());
         }
         variables = max;

@@ -21,6 +21,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #define ISOHASH2_H_
 
 #include <algorithm>
+#include <functional>
 #include <vector>
 
 #include "src/external/md5/md5.h"
