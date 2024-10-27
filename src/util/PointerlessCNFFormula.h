@@ -115,7 +115,9 @@ private:
                 int plit;
                 while (in.readInteger(&plit)) {
                     if (plit == 0) break;
-                    literals.push_back(Lit(abs(plit), plit < 0));
+                    const unsigned var = abs(plit);
+                    literals.push_back(Lit(var, plit < 0));
+                    if (var > variables) variables = var;
                 }
                 clause_bounds.push_back(literals.size());
             }
