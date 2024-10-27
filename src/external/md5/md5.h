@@ -210,7 +210,7 @@ class MD5 {
     }
 
     struct Signature {
-        unsigned char data[MD5_SIZE];
+        unsigned char data[MD5_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
         Signature() {}
         Signature(const std::uint64_t x) {
