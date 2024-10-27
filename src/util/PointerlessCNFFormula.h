@@ -46,10 +46,6 @@ class PointerlessCNFFormula {
         return variables;
     }
 
-    inline const std::vector<Lit>& literal() {
-        return literals;
-    }
-
     struct Clause {
         using It = std::vector<Lit>::const_iterator;
         const It begin_, end_;
