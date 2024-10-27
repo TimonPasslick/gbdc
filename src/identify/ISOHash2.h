@@ -38,11 +38,11 @@ namespace CNF {
             Hash n;
             void flip() { std::swap(n, p); }
             void cross_reference() {
-                const Hash ncr = hash(*this);
-                flip();
                 const Hash pcr = hash(*this);
-                n = ncr;
+                flip();
+                const Hash ncr = hash(*this);
                 p = pcr;
+                n = ncr;
             }
             Hash variable_hash() {
                 if (n > p) flip();
