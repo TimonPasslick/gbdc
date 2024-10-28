@@ -66,7 +66,7 @@ namespace CNF {
             return md5.finish();
         }
         template <typename T, typename C>
-        static Hash hash_sum(const C& c, const std::function<Hash(const T&)> f) {
+        static Hash hash_sum(const C& c, const std::function<Hash(const T&)>& f) {
             Hash h;
             for (const T& t : c)
                 h += f(t);
@@ -89,7 +89,7 @@ namespace CNF {
         }
         Hash clause_hash(const Clause cl) {
             // hash again to preserve clause structure and avoid collisions of unit clauses with old color
-            return hash(hash_sum<Lit>(cl, old_color()));
+            return hash(hash_sum<const Lit>(cl, [this](const Lit lit) { return old_color()(lit); }));
         }
         void iteration_step() {
             for (unsigned i = 0; i < cnf.nVars(); ++i) {
