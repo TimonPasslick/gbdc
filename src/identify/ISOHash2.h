@@ -33,6 +33,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 namespace CNF {
     struct WeisfeilerLemanHasher {
+        constexpr static bool debug_output = true;
+        const std::string file; // just for debugging
         const PointerlessCNFFormula cnf;
         using Hash = MD5::Signature;
         using Clause = PointerlessCNFFormula::Clause;
@@ -82,6 +84,7 @@ namespace CNF {
         WeisfeilerLemanHasher(const char* filename)
                 : cnf(filename)
                 , color_functions {ColorFunction(cnf.nVars()), ColorFunction(cnf.nVars())}
+                , file(filename)
         {
             // optimized first iteration (theoretically all colors are 1 initially)
             for (const Clause cl : cnf.clauses()) {
@@ -128,7 +131,10 @@ namespace CNF {
                 unique_hashes.insert(vh);
                 return vh;
             });
-            if (unique_hashes.size() <= previous_unique_hashes) return std::to_string(cnfh);
+            if (unique_hashes.size() <= previous_unique_hashes) {
+                if constexpr (debug_output) std::cout << iteration << " iterations for " << file << std::endl;
+                return std::to_string(cnfh);
+            }
             previous_unique_hashes = unique_hashes.size();
             return std::nullopt;
         }
@@ -138,6 +144,7 @@ namespace CNF {
                     return *result;
                 iteration_step();
             }
+            if constexpr (debug_output) std::cout << "iteration limit (" << ((double) depth) / 2 + 1 << ") reached for " << file << std::endl;
             const Hash h = depth % 2 == 0 ? variable_hash() : cnf_hash();
             return std::to_string(h);
         }
