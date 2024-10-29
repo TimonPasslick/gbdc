@@ -22,6 +22,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <algorithm>
 #include <functional>
+#include <optional>
+#include <unordered_set>
 #include <vector>
 
 #include "src/external/md5/md5.h"
@@ -45,9 +47,10 @@ namespace CNF {
                 p = pcr;
                 n = ncr;
             }
-            Hash variable_hash() {
-                if (n > p) flip();
-                return hash(*this);
+            Hash variable_hash() const {
+                LitColors copy = *this;
+                if (n > p) copy.flip();
+                return hash(copy);
             }
         };
         struct ColorFunction {
@@ -58,6 +61,7 @@ namespace CNF {
         // old and new color function, swapping in each iteration
         ColorFunction color_functions[2];
         unsigned iteration = 0;
+        unsigned previous_unique_hashes = 1;
 
         template <typename T> // needs to be flat, no pointers or heap data
         static Hash hash(const T t) {
@@ -113,9 +117,27 @@ namespace CNF {
                 lc.cross_reference();
             return hash_sum<Clause>(cnf.clauses(), [this](const Clause cl) { return clause_hash(cl); });
         }
-        std::string operator () (const unsigned depth) {
-            while (iteration <= depth / 2)
+        std::optional<std::string> check_progress() {
+            constexpr unsigned last_unchecked_iteration = 1;
+            if (iteration < last_unchecked_iteration) return std::nullopt;
+
+            std::unordered_set<Hash> unique_hashes;
+            unique_hashes.reserve(previous_unique_hashes);
+            const Hash cnfh = hash_sum<LitColors>(old_color().colors, [&unique_hashes](LitColors lc) {
+                const Hash vh = lc.variable_hash();
+                unique_hashes.insert(vh);
+                return vh;
+            });
+            if (unique_hashes.size() <= previous_unique_hashes) return std::to_string(cnfh);
+            previous_unique_hashes = unique_hashes.size();
+            return std::nullopt;
+        }
+        std::string operator () (const unsigned depth = std::numeric_limits<unsigned>::max()) {
+            while (iteration <= depth / 2) {
+                if (const auto result = check_progress())
+                    return *result;
                 iteration_step();
+            }
             const Hash h = depth % 2 == 0 ? variable_hash() : cnf_hash();
             return std::to_string(h);
         }

@@ -245,6 +245,9 @@ class MD5 {
             const bool carry_up_again = ckd_add_to(&lower(), carry_down);
             upper() += carry_up_again;
         }
+        bool operator == (Signature o) const {
+            return lower() == o.lower() && upper() == o.upper();
+        }
         bool operator > (Signature o) const {
             return upper() != o.upper() ? upper() > o.upper() : lower() > o.lower();
         }
@@ -262,6 +265,12 @@ namespace std {
         md5::sig_to_string(sig.data, str, sizeof(str));
         return string(str);
     }
+    template <>
+    struct hash<MD5::Signature> {
+        inline size_t operator () (const MD5::Signature signature) const noexcept {
+            return signature.lower();
+        }
+    };
 } // namespace std
 
 
