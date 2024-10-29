@@ -132,7 +132,6 @@ PYBIND11_MODULE(gbdc, m) {
     m.def("opb_base_feature_names", &feature_names<OPB::BaseFeatures>, "Get OPB Base Feature Names");
     m.def("gbdhash", &CNF::gbdhash, "Calculates GBD-Hash (md5 of normalized file) of given DIMACS CNF file.", py::arg("filename"));
     m.def("isohash", &CNF::isohash, "Calculates ISO-Hash (md5 of sorted degree sequence) of given DIMACS CNF file.", py::arg("filename"));
-    m.def("isohash2", &CNF::isohash2, "Calculates ISO-Hash 2 (md5 of ambiguously normalized formula) of given DIMACS CNF file.", py::arg("filename"));
     m.def("weisfeiler_leman_hash", &CNF::weisfeiler_leman_hash, "Calculates fixed depth Weisfeiler-Leman-Hash of given DIMACS CNF file.", py::arg("iterations"), py::arg("filename"));
     m.def("opbhash", &OPB::gbdhash, "Calculates OPB-Hash (md5 of normalized file) of given OPB file.", py::arg("filename"));
     m.def("pqbfhash", &PQBF::gbdhash, "Calculates PQBF-Hash (md5 of normalized file) of given PQBF file.", py::arg("filename"));

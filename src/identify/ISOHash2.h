@@ -132,17 +132,6 @@ namespace CNF {
     std::string weisfeiler_leman_hash(const unsigned depth, const char* filename) {
         return WeisfeilerLemanHasher(filename)(depth);
     }
-
-    /**
-     * @brief Like weisfeiler_leman_hash, but with the literal interaction graph.
-     * @param filename benchmark instance
-     * @return std::string isohash2
-     */
-    std::string isohash2(const char* filename) {
-        // TODO
-        // unclear what I should do because first iteration of Weisfeiler-Leman on LIG is not isohash1, so it is not necessarily stronger
-        return std::string();
-    }
 } // namespace CNF
 
 #endif  // ISOHASH2_H_
