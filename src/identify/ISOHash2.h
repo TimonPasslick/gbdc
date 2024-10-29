@@ -126,14 +126,14 @@ namespace CNF {
 
             std::unordered_set<Hash> unique_hashes;
             unique_hashes.reserve(previous_unique_hashes);
-            const Hash cnfh = hash_sum<LitColors>(old_color().colors, [&unique_hashes](LitColors lc) {
+            const Hash vh = hash_sum<LitColors>(old_color().colors, [&unique_hashes](LitColors lc) {
                 const Hash vh = lc.variable_hash();
                 unique_hashes.insert(vh);
                 return vh;
             });
             if (unique_hashes.size() <= previous_unique_hashes) {
                 if constexpr (debug_output) std::cout << iteration << " iterations for " << file << std::endl;
-                return std::to_string(cnfh);
+                return std::to_string(vh);
             }
             previous_unique_hashes = unique_hashes.size();
             return std::nullopt;
