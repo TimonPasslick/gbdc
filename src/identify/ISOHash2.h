@@ -63,6 +63,7 @@ namespace CNF {
         // old and new color function, swapping in each iteration
         ColorFunction color_functions[2];
         unsigned iteration = 0;
+        std::unordered_set<Hash> unique_hashes;
         unsigned previous_unique_hashes = 1;
 
         template <typename T> // needs to be flat, no pointers or heap data
@@ -124,9 +125,8 @@ namespace CNF {
             constexpr unsigned last_unchecked_iteration = 1;
             if (iteration < last_unchecked_iteration) return std::nullopt;
 
-            std::unordered_set<Hash> unique_hashes;
             unique_hashes.reserve(previous_unique_hashes);
-            const Hash vh = hash_sum<LitColors>(old_color().colors, [&unique_hashes](LitColors lc) {
+            const Hash vh = hash_sum<LitColors>(old_color().colors, [this](LitColors lc) {
                 const Hash vh = lc.variable_hash();
                 unique_hashes.insert(vh);
                 return vh;
@@ -136,6 +136,7 @@ namespace CNF {
                 return std::to_string(vh);
             }
             previous_unique_hashes = unique_hashes.size();
+            unique_hashes.clear();
             return std::nullopt;
         }
         std::string operator () (const unsigned depth = std::numeric_limits<unsigned>::max()) {
