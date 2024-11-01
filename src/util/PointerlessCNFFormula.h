@@ -29,16 +29,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "src/util/SolverTypes.h"
 
 class PointerlessCNFFormula {
-    std::vector<unsigned> clause_bounds;
-    std::vector<Lit> literals;
-    unsigned variables;
+    std::vector<std::vector<Lit>> clause_length_literals;
+    unsigned variables = 0;
 
  public:
-    PointerlessCNFFormula() : clause_bounds(), literals(), variables(0) {
-        clause_bounds.push_back(0);
-    }
-
-    explicit PointerlessCNFFormula(const char* filename) : PointerlessCNFFormula() {
+    explicit PointerlessCNFFormula(const char* filename) {
         readDimacsFromFile(filename);
     }
 
@@ -60,20 +55,24 @@ class PointerlessCNFFormula {
         }
     };
     struct ClauseIt {
-        std::vector<unsigned>::const_iterator lower_clause_bound;
-        const std::vector<Lit>::const_iterator literals_begin;
+        const std::vector<std::vector<Lit>>& clause_length_literals;
+        unsigned length;
+        unsigned clause_start;
         inline ClauseIt& operator ++ () {
-            ++lower_clause_bound;
+            clause_start += length;
+            if (clause_start >= clause_length_literals[length].size()) {
+                while (++length < clause_length_literals.size() && clause_length_literals[length].size() == 0)
+                    ;
+                clause_start = 0;
+            }
             return *this;
         }
         Clause operator * () {
-            return Clause {
-                literals_begin + *lower_clause_bound,
-                literals_begin + *(lower_clause_bound + 1)
-            };
+            const Clause::It begin = clause_length_literals[length].begin() + clause_start;
+            return Clause {begin, begin + length};
         }
         bool operator != (ClauseIt o) {
-            return lower_clause_bound != o.lower_clause_bound;
+            return length != o.length || clause_start != o.clause_start;
         }
     };
     struct Clauses {
@@ -87,8 +86,8 @@ class PointerlessCNFFormula {
     };
     Clauses clauses() const {
         return Clauses {
-            {clause_bounds.begin(), literals.begin()},
-            {clause_bounds.end() - 1, literals.begin()}
+            ++ClauseIt{clause_length_literals, 0, 0},
+            {clause_length_literals, (unsigned) clause_length_literals.size(), 0}
         };
     }
 
@@ -99,27 +98,46 @@ private:
         constexpr unsigned empty = ~0U;
         name.resize(variables+1, empty);
         unsigned max = 0;
-        for (Lit& lit : literals) {
-            if (name[lit.var()] == empty) name[lit.var()] = max++;
-            lit = Lit(name[lit.var()], lit.sign());
+        for (std::vector<Lit>& clause_length : clause_length_literals) {
+            for (Lit& lit : clause_length) {
+                if (name[lit.var()] == empty) name[lit.var()] = max++;
+                lit = Lit(name[lit.var()], lit.sign());
+            }
         }
         variables = max;
     }
 
+    // https://stackoverflow.com/a/1322548/27720282
+    static unsigned next_power_of_2(unsigned n) {
+        n--;
+        n |= n >> 0b00001;
+        n |= n >> 0b00010;
+        n |= n >> 0b00100;
+        n |= n >> 0b01000;
+        n |= n >> 0b10000;
+        n++;
+    }
     void readDimacsFromFile(const char* filename) {
         StreamBuffer in(filename);
         while (in.skipWhitespace()) {
             if (*in == 'p' || *in == 'c') {
                 if (!in.skipLine()) break;
             } else {
+                std::vector<Lit> clause;
                 int plit;
                 while (in.readInteger(&plit)) {
                     if (plit == 0) break;
                     const unsigned var = abs(plit);
-                    literals.push_back(Lit(var, plit < 0));
+                    clause.push_back(Lit(var, plit < 0));
                     if (var > variables) variables = var;
                 }
-                clause_bounds.push_back(literals.size());
+                if (clause.size() >= clause_length_literals.size()) {
+                    const unsigned new_size = clause.size() + 1;
+                    clause_length_literals.reserve(next_power_of_2(new_size));
+                    clause_length_literals.resize(new_size);
+                }
+                std::vector<Lit>& insert_here = clause_length_literals[clause.size()];
+                insert_here.insert(insert_here.end(), clause.begin(), clause.end());
             }
         }
         normalizeVariableNames();
