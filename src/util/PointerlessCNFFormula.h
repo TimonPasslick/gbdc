@@ -116,6 +116,7 @@ private:
         n |= n >> 0b01000;
         n |= n >> 0b10000;
         n++;
+        return n;
     }
     void readDimacsFromFile(const char* filename) {
         StreamBuffer in(filename);
