@@ -29,12 +29,16 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "src/util/SolverTypes.h"
 
 class PointerlessCNFFormula {
-    std::vector<std::vector<Lit>> clause_length_literals;
+    std::vector<std::vector<Lit>*> clause_length_literals;
     unsigned variables = 0;
 
  public:
     explicit PointerlessCNFFormula(const char* filename) {
         readDimacsFromFile(filename);
+    }
+    ~PointerlessCNFFormula() {
+        for (const std::vector<Lit>* clause_length : clause_length_literals)
+            delete clause_length;
     }
 
     inline size_t nVars() const {
@@ -55,18 +59,18 @@ class PointerlessCNFFormula {
         }
     };
     struct ClauseIt {
-        const std::vector<std::vector<Lit>>& clause_length_literals;
+        const std::vector<std::vector<Lit>*>& clause_length_literals;
         unsigned length;
         std::vector<Lit>::const_iterator clause_begin;
         std::vector<Lit>::const_iterator subvector_end;
         inline ClauseIt& operator ++ () {
             clause_begin += length;
             if (clause_begin == subvector_end) {
-                while (++length != clause_length_literals.size() && clause_length_literals[length].size() == 0)
+                while (++length != clause_length_literals.size() && clause_length_literals[length]->size() == 0)
                     ;
                 if (length != clause_length_literals.size()) {
-                    clause_begin = clause_length_literals[length].begin();
-                    subvector_end = clause_length_literals[length].end();
+                    clause_begin = clause_length_literals[length]->begin();
+                    subvector_end = clause_length_literals[length]->end();
                 }
             }
             return *this;
@@ -89,8 +93,8 @@ class PointerlessCNFFormula {
     };
     Clauses clauses() const {
         return Clauses {
-            ++ClauseIt{clause_length_literals, 0, clause_length_literals[0].begin(), clause_length_literals[0].end()},
-            {clause_length_literals, (unsigned) clause_length_literals.size(), (clause_length_literals.end() - 1)->end()}
+            ++ClauseIt{clause_length_literals, 0, clause_length_literals[0]->begin(), clause_length_literals[0]->end()},
+            {clause_length_literals, (unsigned) clause_length_literals.size(), (*(clause_length_literals.end() - 1))->end()}
         };
     }
 
@@ -101,8 +105,8 @@ private:
         constexpr unsigned empty = ~0U;
         name.resize(variables+1, empty);
         unsigned max = 0;
-        for (std::vector<Lit>& clause_length : clause_length_literals) {
-            for (Lit& lit : clause_length) {
+        for (std::vector<Lit>* clause_length : clause_length_literals) {
+            for (Lit& lit : *clause_length) {
                 if (name[lit.var()] == empty) name[lit.var()] = max++;
                 lit = Lit(name[lit.var()], lit.sign());
             }
@@ -136,11 +140,14 @@ private:
                     if (var > variables) variables = var;
                 }
                 if (clause.size() >= clause_length_literals.size()) {
+                    const unsigned old_size = clause_length_literals.size();
                     const unsigned new_size = clause.size() + 1;
                     clause_length_literals.reserve(next_power_of_2(new_size));
                     clause_length_literals.resize(new_size);
+                    for (auto it = clause_length_literals.begin() + old_size; it != clause_length_literals.end(); ++it)
+                        *it = new std::vector<Lit>;
                 }
-                std::vector<Lit>& insert_here = clause_length_literals[clause.size()];
+                std::vector<Lit>& insert_here = *clause_length_literals[clause.size()];
                 insert_here.reserve(next_power_of_2(insert_here.size() + clause.size()));
                 insert_here.insert(insert_here.end(), clause.begin(), clause.end());
             }
