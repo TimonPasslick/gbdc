@@ -57,22 +57,25 @@ class PointerlessCNFFormula {
     struct ClauseIt {
         const std::vector<std::vector<Lit>>& clause_length_literals;
         unsigned length;
-        unsigned clause_start;
+        std::vector<Lit>::const_iterator clause_begin;
+        std::vector<Lit>::const_iterator subvector_end;
         inline ClauseIt& operator ++ () {
-            clause_start += length;
-            if (clause_start >= clause_length_literals[length].size()) {
-                while (++length < clause_length_literals.size() && clause_length_literals[length].size() == 0)
+            clause_begin += length;
+            if (clause_begin == subvector_end) {
+                while (++length != clause_length_literals.size() && clause_length_literals[length].size() == 0)
                     ;
-                clause_start = 0;
+                if (length != clause_length_literals.size()) {
+                    clause_begin = clause_length_literals[length].begin();
+                    subvector_end = clause_length_literals[length].end();
+                }
             }
             return *this;
         }
         Clause operator * () {
-            const Clause::It begin = clause_length_literals[length].begin() + clause_start;
-            return Clause {begin, begin + length};
+            return Clause {clause_begin, clause_begin + length};
         }
         bool operator != (ClauseIt o) {
-            return length != o.length || clause_start != o.clause_start;
+            return length != o.length || clause_begin != o.clause_begin;
         }
     };
     struct Clauses {
@@ -86,8 +89,8 @@ class PointerlessCNFFormula {
     };
     Clauses clauses() const {
         return Clauses {
-            ++ClauseIt{clause_length_literals, 0, 0},
-            {clause_length_literals, (unsigned) clause_length_literals.size(), 0}
+            ++ClauseIt{clause_length_literals, 0, clause_length_literals[0].begin(), clause_length_literals[0].end()},
+            {clause_length_literals, (unsigned) clause_length_literals.size(), (clause_length_literals.end() - 1)->end()}
         };
     }
 
