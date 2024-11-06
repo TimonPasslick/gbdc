@@ -133,7 +133,7 @@ namespace CNF {
             });
             if (unique_hashes.size() <= previous_unique_hashes) {
                 if constexpr (debug_output) std::cout << iteration << " iterations for " << file << std::endl;
-                return std::to_string(vh) + "," + std::to_string(iteration);
+                return std::to_string(vh);
             }
             previous_unique_hashes = unique_hashes.size();
             unique_hashes.clear();
@@ -147,7 +147,7 @@ namespace CNF {
             }
             if constexpr (debug_output) std::cout << "iteration limit (" << ((double) depth) / 2 + 1 << ") reached for " << file << std::endl;
             const Hash h = depth % 2 == 0 ? variable_hash() : cnf_hash();
-            return std::to_string(h) + "," + std::to_string(((double) depth) / 2 + 1);
+            return std::to_string(h);
         }
     };
 
