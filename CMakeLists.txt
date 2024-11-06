@@ -44,6 +44,8 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     set(LibArchive_INCLUDE_DIR "${LIBARCHIVE_PREFIX}/include")
 endif()
 
+find_package(xxHash CONFIG REQUIRED)
+
 find_package(LibArchive REQUIRED)
 include_directories(${LibArchive_INCLUDE_DIRS})
 set(LIBS ${LIBS} md5 ${LibArchive_LIBRARIES})
@@ -54,12 +56,12 @@ add_subdirectory("src")
 add_subdirectory("test")
 
 add_executable(gbdctool src/Main.cc)
-target_link_libraries(gbdctool PUBLIC ${LIBS} solver util extract transform)
+target_link_libraries(gbdctool PUBLIC ${LIBS} solver util extract transform xxHash::xxhash)
 # target_include_directories(gbdctool PUBLIC "${PROJECT_SOURCE_DIR}")
 set_property(TARGET gbdctool PROPERTY OUTPUT_NAME gbdc)
 
 pybind11_add_module(gbdc src/gbdlib.cc)
-target_link_libraries(gbdc PUBLIC ${LIBS} solver util extract transform)
+target_link_libraries(gbdc PUBLIC ${LIBS} solver util extract transform xxHash::xxhash)
 install(TARGETS gbdc DESTINATION .)
 
 add_test(NAME Test_StreamBuffer COMMAND "test/tests_streambuffer")

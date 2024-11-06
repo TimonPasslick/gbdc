@@ -26,7 +26,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <unordered_set>
 #include <vector>
 
-#include "src/external/md5/md5.h"
+#define XXH_INLINE_ALL
+#include "xxhash.h"
 
 #include "src/util/PointerlessCNFFormula.h"
 
@@ -36,7 +37,7 @@ namespace CNF {
         constexpr static bool debug_output = false;
         const std::string file; // just for debugging
         const PointerlessCNFFormula cnf;
-        using Hash = MD5::Signature;
+        using Hash = XXH64_hash_t;
         using Clause = PointerlessCNFFormula::Clause;
         struct LitColors {
             Hash p;
@@ -68,9 +69,7 @@ namespace CNF {
 
         template <typename T> // needs to be flat, no pointers or heap data
         static Hash hash(const T t) {
-            MD5 md5;
-            md5.consume_binary(t);
-            return md5.finish();
+            return XXH3_64bits(&t, sizeof(T));
         }
         template <typename T, typename C>
         static Hash hash_sum(const C& c, const std::function<Hash(const T&)>& f) {

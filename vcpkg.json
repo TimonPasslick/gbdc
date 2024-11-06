@@ -1,0 +1,7 @@
+{
+  "name": "gbdc",
+  "version": "0.2.47",
+  "dependencies": [
+    "xxhash"
+  ]
+}

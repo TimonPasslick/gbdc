@@ -26,7 +26,17 @@ A description of the supported domains, feature extractors, and instance transfo
    - For Ubuntu: `apt install libarchive-dev pybind11-dev`
    - For macOS: `brew install libarchive pybind11`
 
-2. Run `pip install . --user` in the repository directory.
+2. **Install vcpgk in the home directory and xxhash**
+```sh
+cd ~
+git clone https://github.com/Microsoft/vcpkg.git
+cd vcpkg
+./bootstrap-vcpkg.sh
+./vcpkg integrate install
+./vcpkg install xxhash
+```
+
+3. Run `pip install . --user` in the repository directory.
 <!-- #### Shipped Dependencies
 
 * A copy of the command-line argument parser by P. S. Kumar [`argparse.h`](https://github.com/p-ranav/argparse) (MIT licensed) resides in the `lib` folder.

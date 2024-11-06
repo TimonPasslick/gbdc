@@ -51,6 +51,7 @@ build.sh
 Testing/
 data.csv
 venv
+vcpkg_installed/
 # autotools output
 configure
 makefile

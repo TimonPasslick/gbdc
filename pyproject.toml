@@ -6,6 +6,7 @@ build-backend = "scikit_build_core.build"
 sdist.cmake = true
 cmake.version = ">=3.15"
 cmake.build-type = "Release"
+cmake.args=["-DCMAKE_TOOLCHAIN_FILE=~/vcpkg/scripts/buildsystems/vcpkg.cmake"]
 
 [project]
 name = "gbdc"
