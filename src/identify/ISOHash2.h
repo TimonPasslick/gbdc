@@ -118,7 +118,7 @@ namespace CNF {
         {
             // optimized first iteration (theoretically all colors are 1 initially)
             for (const Clause cl : cnf.clauses()) {
-                const Hash clh = hash(cl.size());
+                const Hash clh = hash((unsigned) cl.size());
                 for (const Lit lit : cl)
                     new_color()(lit) += clh;
             }
