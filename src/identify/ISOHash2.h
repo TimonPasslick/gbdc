@@ -33,11 +33,45 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 
 namespace CNF {
+    struct Hash {
+        XXH64_hash_t value = 0;
+        // commutative hash combination
+        // The idea behind using + instead of ^ is that combining identical hashes leads to a left shift and not 0 (the neutral element).
+        // By carrying down instead of wrapping on overflow, I make this shift cyclical and the only way to reach 0 becomes 0+0.
+        // The existence of a 0 is unavoidable: https://kevinventullo.com/2018/12/24/hashing-unordered-sets-how-far-will-cleverness-take-you/
+        void operator += (Hash o) {
+            value += o.value + (value > std::numeric_limits<XXH64_hash_t>::max() - o.value);
+        }
+        bool operator == (Hash o) const {
+            return value == o.value;
+        }
+        bool operator > (Hash o) const {
+            return value > o.value;
+        }
+    };
+    template <typename T> // needs to be flat, no pointers or heap data
+    Hash hash(const T t) {
+        return {XXH3_64bits(&t, sizeof(T))};
+    }
+}
+
+namespace std {
+    inline string to_string(const CNF::Hash h) {
+        return to_string(h.value);
+    }
+    template <>
+    struct hash<CNF::Hash> {
+        inline size_t operator () (const CNF::Hash h) const noexcept {
+            return h.value;
+        }
+    };
+} // namespace std
+
+namespace CNF {
     struct WeisfeilerLemanHasher {
         constexpr static bool debug_output = false;
         const std::string file; // just for debugging
         const PointerlessCNFFormula cnf;
-        using Hash = XXH64_hash_t;
         using Clause = PointerlessCNFFormula::Clause;
         struct LitColors {
             Hash p;
@@ -67,10 +101,6 @@ namespace CNF {
         std::unordered_set<Hash> unique_hashes;
         unsigned previous_unique_hashes = 1;
 
-        template <typename T> // needs to be flat, no pointers or heap data
-        static Hash hash(const T t) {
-            return XXH3_64bits(&t, sizeof(T));
-        }
         template <typename T, typename C>
         static Hash hash_sum(const C& c, const std::function<Hash(const T&)>& f) {
             Hash h;
