@@ -39,22 +39,22 @@ namespace CNF {
         // The idea behind using + instead of ^ is that combining identical hashes leads to a left shift and not 0 (the neutral element).
         // By carrying down instead of wrapping on overflow, I make this shift cyclical and the only way to reach 0 becomes 0+0.
         // The existence of a 0 is unavoidable: https://kevinventullo.com/2018/12/24/hashing-unordered-sets-how-far-will-cleverness-take-you/
-        void operator += (Hash o) {
+        inline void operator += (Hash o) {
             value += o.value + (value > std::numeric_limits<XXH64_hash_t>::max() - o.value);
         }
-        bool operator == (Hash o) const {
+        inline bool operator == (Hash o) const {
             return value == o.value;
         }
-        bool operator > (Hash o) const {
+        inline bool operator > (Hash o) const {
             return value > o.value;
         }
     };
     template <typename T> // needs to be flat, no pointers or heap data
-    Hash hash(const T t) {
+    inline Hash hash(const T t) {
         return {XXH3_64bits(&t, sizeof(T))};
     }
     template <typename T, typename C>
-    static Hash hash_sum(const C& c, const std::function<Hash(const T&)>& f) {
+    inline Hash hash_sum(const C& c, const std::function<Hash(const T&)>& f) {
         Hash h;
         for (const T& t : c)
             h += f(t);
@@ -83,15 +83,15 @@ namespace CNF {
         struct LitColors {
             Hash p;
             Hash n;
-            void flip() { std::swap(n, p); }
-            void cross_reference() {
+            inline void flip() { std::swap(n, p); }
+            inline void cross_reference() {
                 const Hash pcr = hash(*this);
                 flip();
                 const Hash ncr = hash(*this);
                 p = pcr;
                 n = ncr;
             }
-            Hash variable_hash() const {
+            inline Hash variable_hash() const {
                 LitColors copy = *this;
                 if (n > p) copy.flip();
                 return hash(copy);
@@ -100,7 +100,7 @@ namespace CNF {
         struct ColorFunction {
             std::vector<LitColors> colors;
             explicit ColorFunction(const std::size_t n) : colors(n) {}
-            Hash& operator () (const Lit lit) { return reinterpret_cast<Hash*>(&colors[0])[lit]; }
+            inline Hash& operator () (const Lit lit) { return reinterpret_cast<Hash*>(&colors[0])[lit]; }
         };
         // old and new color function, swapping in each iteration
         ColorFunction color_functions[2];
@@ -108,8 +108,8 @@ namespace CNF {
         std::unordered_set<Hash> unique_hashes;
         unsigned previous_unique_hashes = 1;
 
-        ColorFunction& old_color() { return color_functions[iteration % 2]; }
-        ColorFunction& new_color() { return color_functions[(iteration + 1) % 2]; }
+        inline ColorFunction& old_color() { return color_functions[iteration % 2]; }
+        inline ColorFunction& new_color() { return color_functions[(iteration + 1) % 2]; }
 
         WeisfeilerLemanHasher(const char* filename)
                 : cnf(filename)

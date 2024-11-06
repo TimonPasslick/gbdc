@@ -33,7 +33,7 @@ class PointerlessCNFFormula {
     unsigned variables = 0;
 
  public:
-    explicit PointerlessCNFFormula(const char* filename) {
+    explicit inline PointerlessCNFFormula(const char* filename) {
         readDimacsFromFile(filename);
     }
     ~PointerlessCNFFormula() {
@@ -54,7 +54,7 @@ class PointerlessCNFFormula {
         inline It end() const {
             return end_;
         }
-        std::size_t size() const {
+        inline std::size_t size() const {
             return end_ - begin_;
         }
     };
@@ -75,10 +75,10 @@ class PointerlessCNFFormula {
             }
             return *this;
         }
-        Clause operator * () {
+        inline Clause operator * () {
             return Clause {clause_begin, clause_begin + length};
         }
-        bool operator != (ClauseIt o) {
+        inline bool operator != (ClauseIt o) {
             return length != o.length || clause_begin != o.clause_begin;
         }
     };
@@ -115,7 +115,7 @@ private:
     }
 
     // https://stackoverflow.com/a/1322548/27720282
-    static unsigned next_power_of_2(unsigned n) {
+    static inline unsigned next_power_of_2(unsigned n) {
         n--;
         n |= n >> 0b00001;
         n |= n >> 0b00010;
