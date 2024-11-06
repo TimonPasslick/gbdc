@@ -31,58 +31,16 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "src/util/PointerlessCNFFormula.h"
 
-
-namespace CNF {
-    struct Hash {
-        XXH64_hash_t value = 0;
-        // commutative hash combination
-        // The idea behind using + instead of ^ is that combining identical hashes leads to a left shift and not 0 (the neutral element).
-        // By carrying down instead of wrapping on overflow, I make this shift cyclical and the only way to reach 0 becomes 0+0.
-        // The existence of a 0 is unavoidable: https://kevinventullo.com/2018/12/24/hashing-unordered-sets-how-far-will-cleverness-take-you/
-        inline void operator += (Hash o) {
-            value += o.value + (value > std::numeric_limits<XXH64_hash_t>::max() - o.value);
-        }
-        inline bool operator == (Hash o) const {
-            return value == o.value;
-        }
-        inline bool operator > (Hash o) const {
-            return value > o.value;
-        }
-    };
-    template <typename T> // needs to be flat, no pointers or heap data
-    inline Hash hash(const T t) {
-        return {XXH3_64bits(&t, sizeof(T))};
-    }
-    template <typename T, typename C>
-    inline Hash hash_sum(const C& c, const std::function<Hash(const T&)>& f) {
-        Hash h;
-        for (const T& t : c)
-            h += f(t);
-        return h;
-    }
-}
-
-namespace std {
-    inline string to_string(const CNF::Hash h) {
-        return to_string(h.value);
-    }
-    template <>
-    struct hash<CNF::Hash> {
-        inline size_t operator () (const CNF::Hash h) const noexcept {
-            return h.value;
-        }
-    };
-} // namespace std
-
 namespace CNF {
     struct WeisfeilerLemanHasher {
+        using Hash = XXH64_hash_t;
         constexpr static bool debug_output = false;
         const std::string file; // just for debugging
         const PointerlessCNFFormula cnf;
         using Clause = PointerlessCNFFormula::Clause;
         struct LitColors {
-            Hash p;
-            Hash n;
+            Hash p = 0;
+            Hash n = 0;
             inline void flip() { std::swap(n, p); }
             inline void cross_reference() {
                 const Hash pcr = hash(*this);
@@ -111,6 +69,21 @@ namespace CNF {
         inline ColorFunction& old_color() { return color_functions[iteration % 2]; }
         inline ColorFunction& new_color() { return color_functions[(iteration + 1) % 2]; }
 
+        template <typename T> // needs to be flat, no pointers or heap data
+        static inline Hash hash(const T t) {
+            return {XXH3_64bits(&t, sizeof(T))};
+        }
+        static inline void combine(Hash* acc, const Hash in) {
+            *acc += in + (*acc > std::numeric_limits<Hash>::max() - in);
+        }
+        template <typename T, typename C>
+        static inline Hash hash_sum(const C& c, const std::function<Hash(const T&)>& f) {
+            Hash h = 0;
+            for (const T& t : c)
+                combine(&h, f(t));
+            return h;
+        }
+
         WeisfeilerLemanHasher(const char* filename)
                 : cnf(filename)
                 , color_functions {ColorFunction(cnf.nVars()), ColorFunction(cnf.nVars())}
@@ -120,7 +93,7 @@ namespace CNF {
             for (const Clause cl : cnf.clauses()) {
                 const Hash clh = hash((unsigned) cl.size());
                 for (const Lit lit : cl)
-                    new_color()(lit) += clh;
+                    combine(&new_color()(lit), clh);
             }
             ++iteration;
         }
@@ -138,7 +111,7 @@ namespace CNF {
             for (const Clause cl : cnf.clauses()) {
                 const Hash clh = clause_hash(cl);
                 for (const Lit lit : cl)
-                    new_color()(lit) += clh;
+                    combine(&new_color()(lit), clh);
             }
             ++iteration;
         }
