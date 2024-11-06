@@ -53,6 +53,13 @@ namespace CNF {
     Hash hash(const T t) {
         return {XXH3_64bits(&t, sizeof(T))};
     }
+    template <typename T, typename C>
+    static Hash hash_sum(const C& c, const std::function<Hash(const T&)>& f) {
+        Hash h;
+        for (const T& t : c)
+            h += f(t);
+        return h;
+    }
 }
 
 namespace std {
@@ -101,13 +108,6 @@ namespace CNF {
         std::unordered_set<Hash> unique_hashes;
         unsigned previous_unique_hashes = 1;
 
-        template <typename T, typename C>
-        static Hash hash_sum(const C& c, const std::function<Hash(const T&)>& f) {
-            Hash h;
-            for (const T& t : c)
-                h += f(t);
-            return h;
-        }
         ColorFunction& old_color() { return color_functions[iteration % 2]; }
         ColorFunction& new_color() { return color_functions[(iteration + 1) % 2]; }
 
