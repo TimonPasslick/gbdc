@@ -127,11 +127,11 @@ private:
     }
     void readDimacsFromFile(const char* filename) {
         StreamBuffer in(filename);
+        std::vector<Lit> clause;
         while (in.skipWhitespace()) {
             if (*in == 'p' || *in == 'c') {
                 if (!in.skipLine()) break;
             } else {
-                std::vector<Lit> clause;
                 int plit;
                 while (in.readInteger(&plit)) {
                     if (plit == 0) break;
@@ -150,6 +150,7 @@ private:
                 std::vector<Lit>& insert_here = *clause_length_literals[clause.size()];
                 insert_here.reserve(next_power_of_2(insert_here.size() + clause.size()));
                 insert_here.insert(insert_here.end(), clause.begin(), clause.end());
+                clause.clear();
             }
         }
         normalizeVariableNames();
