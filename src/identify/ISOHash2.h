@@ -124,8 +124,8 @@ namespace CNF {
             return hash_sum<Clause>(cnf.clauses(), [this](const Clause cl) { return clause_hash(cl); });
         }
         std::optional<std::string> check_progress() {
-            constexpr unsigned last_unchecked_iteration = 1;
-            if (iteration < last_unchecked_iteration) return std::nullopt;
+            // few hits at the start
+            if (iteration <= 2) return std::nullopt;
 
             unique_hashes.reserve(previous_unique_hashes);
             const Hash vh = hash_sum<LitColors>(old_color().colors, [this](LitColors lc) {
