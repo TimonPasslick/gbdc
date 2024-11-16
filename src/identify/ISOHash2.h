@@ -97,17 +97,16 @@ namespace CNF {
             }
             ++iteration;
         }
+        void cross_reference() {
+            for (LitColors& lc : old_color().colors)
+                lc.cross_reference();
+        }
         Hash clause_hash(const Clause cl) {
             // hash again to preserve clause structure and avoid collisions of unit clauses with old color
             return hash(hash_sum<const Lit>(cl, [this](const Lit lit) { return old_color()(lit); }));
         }
         void iteration_step() {
-            for (unsigned i = 0; i < cnf.nVars(); ++i) {
-                LitColors& olc = old_color().colors[i];
-                olc.cross_reference();
-                LitColors& nlc = new_color().colors[i];
-                nlc = olc;
-            }
+            cross_reference();
             for (const Clause cl : cnf.clauses()) {
                 const Hash clh = clause_hash(cl);
                 for (const Lit lit : cl)
@@ -119,8 +118,7 @@ namespace CNF {
             return hash_sum<LitColors>(old_color().colors, [](LitColors lc) { return lc.variable_hash(); });
         }
         Hash cnf_hash() {
-            for (LitColors& lc : old_color().colors)
-                lc.cross_reference();
+            cross_reference();
             return hash_sum<Clause>(cnf.clauses(), [this](const Clause cl) { return clause_hash(cl); });
         }
         std::optional<std::string> check_progress() {
