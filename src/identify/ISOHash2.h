@@ -84,17 +84,20 @@ namespace CNF {
             return h;
         }
 
+        void wl_iteration_step(const std::function<Hash(const Clause)>& clause_hash) {
+            for (const Clause cl : cnf.clauses()) {
+                const Hash clh = clause_hash(cl);
+                for (const Lit lit : cl)
+                    combine(&new_color()(lit), clh);
+            }
+        }
         WeisfeilerLemanHasher(const char* filename)
                 : cnf(filename)
                 , color_functions {ColorFunction(cnf.nVars()), ColorFunction(cnf.nVars())}
                 , file(filename)
         {
             // optimized first iteration (theoretically all colors are 1 initially)
-            for (const Clause cl : cnf.clauses()) {
-                const Hash clh = hash((unsigned) cl.size());
-                for (const Lit lit : cl)
-                    combine(&new_color()(lit), clh);
-            }
+            wl_iteration_step([](const Clause cl) { return hash((unsigned) cl.size()); });
             ++iteration;
         }
         void cross_reference() {
@@ -107,11 +110,7 @@ namespace CNF {
         }
         void iteration_step() {
             cross_reference();
-            for (const Clause cl : cnf.clauses()) {
-                const Hash clh = clause_hash(cl);
-                for (const Lit lit : cl)
-                    combine(&new_color()(lit), clh);
-            }
+            wl_iteration_step([this](const Clause cl) { return clause_hash(cl); });
             ++iteration;
         }
         Hash variable_hash() {
