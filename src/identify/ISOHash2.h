@@ -21,6 +21,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #define ISOHASH2_H_
 
 #include <algorithm>
+#include <chrono>
 #include <functional>
 #include <optional>
 #include <unordered_set>
@@ -36,6 +37,9 @@ namespace CNF {
         using Hash = XXH64_hash_t;
         constexpr static bool debug_output = false;
         const std::string file; // just for debugging
+        using Clock = std::chrono::high_resolution_clock;
+        Clock::time_point start_time;
+        Clock::time_point parsing_start_time;
         const PointerlessCNFFormula cnf;
         using Clause = PointerlessCNFFormula::Clause;
         struct LitColors {
@@ -85,7 +89,9 @@ namespace CNF {
         }
 
         WeisfeilerLemanHasher(const char* filename)
-                : cnf(filename)
+                : parsing_start_time(Clock::now())
+                , cnf(filename)
+                , start_time(Clock::now())
                 , color_functions {ColorFunction(cnf.nVars()), ColorFunction(cnf.nVars())}
                 , file(filename)
         {
@@ -154,7 +160,13 @@ namespace CNF {
      * @return std::string Weisfeiler-Leman hash
      */
     std::string weisfeiler_leman_hash(const unsigned depth, const char* filename) {
-        return WeisfeilerLemanHasher(filename)(depth);
+        WeisfeilerLemanHasher hasher(filename);
+        std::string result = hasher(depth);
+        const auto elapsed = WeisfeilerLemanHasher::Clock::now() - hasher.start_time;
+        const auto parsing_time = hasher.start_time - hasher.parsing_start_time;
+        result += "," + std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count())
+                + "," + std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(parsing_time).count());
+        return result;
     }
 } // namespace CNF
 
