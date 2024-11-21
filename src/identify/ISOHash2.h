@@ -33,7 +33,24 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "src/util/PointerlessCNFFormula.h"
 
 namespace CNF {
+    template <
+        bool use_xxh3 = true, // MD5 otherwise
+        unsigned hash_size = 64,
+        bool carrying_addition = true,
+        unsigned ring_prime_offset = 0, // 0 means no modulo calculations
+
+        unsigned formula_optimization_level = 2, // 0 means classic, 1 bounds array, 2 size concatenation
+
+        bool optimize_first_iteration = true
+    >
     struct WeisfeilerLemanHasher {
+        const unsigned depth;
+        const bool cross_reference_literals;
+        const unsigned first_progress_check_iteration;
+
+        const bool return_iteration_count;
+        const bool return_time;
+
         using Hash = XXH64_hash_t;
         constexpr static bool debug_output = false;
         const std::string file; // just for debugging
@@ -88,12 +105,27 @@ namespace CNF {
             return h;
         }
 
-        WeisfeilerLemanHasher(const char* filename)
-                : parsing_start_time(Clock::now())
+        WeisfeilerLemanHasher(
+            const char* filename,
+
+            const unsigned depth = 13,
+            const bool cross_reference_literals = true,
+            const unsigned first_progress_check_iteration = 3,
+
+            const bool return_iteration_count = true,
+            const bool return_time = true
+        )
+                : file(filename)
+                , depth(depth)
+                , cross_reference_literals(cross_reference_literals)
+                , first_progress_check_iteration(first_progress_check_iteration)
+                , return_iteration_count(return_iteration_count)
+                , return_time(return_time)
+
+                , parsing_start_time(Clock::now())
                 , cnf(filename)
                 , start_time(Clock::now())
                 , color_functions {ColorFunction(cnf.nVars()), ColorFunction(cnf.nVars())}
-                , file(filename)
         {
         }
         void cross_reference() {
@@ -140,7 +172,7 @@ namespace CNF {
             unique_hashes.clear();
             return std::nullopt;
         }
-        std::string operator () (const unsigned depth = std::numeric_limits<unsigned>::max()) {
+        std::string operator () () {
             while (iteration < depth / 2) {
                 if (const auto result = check_progress())
                     return *result;
@@ -153,16 +185,42 @@ namespace CNF {
     };
 
     /**
-     * @brief Comparing Weisfeiler-Leman hashes with depth 2h is approximately as strong as
-     * running the Weisfeiler-Leman algorithm on the literal hypergraph and stopping after h iterations.
+     * @brief Comparing Weisfeiler-Leman hashes is approximately as strong as
+     * running the Weisfeiler-Leman algorithm on the literal hypergraph.
      * Runtime O(h*n), space O(n).
      * @param filename benchmark instance
-     * @return std::string Weisfeiler-Leman hash
+     * @param depth maximum iterations / 2, half iterations hash clause labels
+     * @param cross_reference_literals whether the information which literals
+     * belong to the same variable should be used in the calculation
+     * @param first_progress_check_iteration the first iteration in which the
+     * progress check runs
+     * @param return_iteration_count whether the amount of iterations that were
+     * calculated (possibly half) should be returned
+     * @param return_time whether the calculation time and parsing time should
+     * be returned
+     * @return comma separated list, std::string Weisfeiler-Leman hash,
+     * possibly iteration count, calculation time and parsing time
      */
-    std::string weisfeiler_leman_hash(const unsigned depth, const char* filename) {
-        WeisfeilerLemanHasher hasher(filename);
-        std::string result = hasher(depth);
-        const auto elapsed = WeisfeilerLemanHasher::Clock::now() - hasher.start_time;
+    std::string weisfeiler_leman_hash(
+        const char* filename,
+
+        const unsigned depth = 13,
+        const bool cross_reference_literals = true,
+        const unsigned first_progress_check_iteration = 3,
+
+        const bool return_iteration_count = true,
+        const bool return_time = true
+    ) {
+        WeisfeilerLemanHasher hasher(
+            filename,
+            depth,
+            cross_reference_literals,
+            first_progress_check_iteration,
+            return_iteration_count,
+            return_time
+        );
+        std::string result = hasher();
+        const auto elapsed = WeisfeilerLemanHasher<>::Clock::now() - hasher.start_time;
         const auto parsing_time = hasher.start_time - hasher.parsing_start_time;
         result += "," + std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count())
                 + "," + std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(parsing_time).count());
