@@ -34,12 +34,12 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 namespace CNF {
     struct WLHRuntimeConfig {
-        const unsigned depth;
-        const bool cross_reference_literals;
-        const unsigned first_progress_check_iteration;
-
-        const bool return_iteration_count;
-        const bool return_time;
+        unsigned depth;
+        bool cross_reference_literals;
+        bool rehash_clauses;
+        bool optimize_first_iteration;
+        unsigned first_progress_check_iteration;
+        bool return_measurements;
     };
     template < // compile time config
         bool use_xxh3 = true, // MD5 otherwise
@@ -47,14 +47,11 @@ namespace CNF {
         bool carrying_addition = true,
         unsigned ring_prime_offset = 0, // 0 means no modulo calculations
 
-        unsigned formula_optimization_level = 2, // 0 means classic, 1 bounds array, 2 size concatenation
-
-        bool optimize_first_iteration = true
+        unsigned formula_optimization_level = 2 // 0 means classic, 1 bounds array, 2 size concatenation
     >
     struct WeisfeilerLemanHasher {
         const WLHRuntimeConfig cfg;
         using Hash = XXH64_hash_t;
-        const std::string file; // just for debugging
         using Clock = std::chrono::high_resolution_clock;
         Clock::time_point start_time;
         Clock::time_point parsing_start_time;
@@ -107,26 +104,32 @@ namespace CNF {
         }
 
         WeisfeilerLemanHasher(const char* filename, const WLHRuntimeConfig cfg)
-                : file(filename)
-                , cfg(cfg)
+                : cfg(cfg)
                 , parsing_start_time(Clock::now())
                 , cnf(filename)
                 , start_time(Clock::now())
                 , color_functions {ColorFunction(cnf.nVars()), ColorFunction(cnf.nVars())}
         {
         }
+        inline bool in_optimized_iteration() {
+            return iteration == 0 && cfg.optimize_first_iteration;
+        }
         void cross_reference() {
+            if (!cfg.cross_reference_literals || in_optimized_iteration())
+                return;
             for (LitColors& lc : old_color().colors)
                 lc.cross_reference();
         }
         Hash clause_hash(const Clause cl) {
+            Hash h = hash_sum<const Lit>(cl, [this](const Lit lit) { return old_color()(lit); });
             // hash again to preserve clause structure
-            return hash(hash_sum<const Lit>(cl, [this](const Lit lit) { return old_color()(lit); }));
+            if (cfg.rehash_clauses) h = hash(h);
+            return h;
         };
         void iteration_step() {
-            if (iteration != 0) cross_reference();
+            cross_reference();
             for (const Clause cl : cnf.clauses()) {
-                const Hash clh = (iteration != 0) ?
+                const Hash clh = (!in_optimized_iteration()) ?
                     clause_hash(cl)
                     : hash((unsigned) cl.size());
                 for (const Lit lit : cl)
@@ -135,15 +138,21 @@ namespace CNF {
             ++iteration;
         }
         Hash variable_hash() {
-            return hash_sum<LitColors>(old_color().colors, [](LitColors lc) { return lc.variable_hash(); });
+            if (cfg.cross_reference_literals)
+                return hash_sum<LitColors>(old_color().colors, [](LitColors lc) { return lc.variable_hash(); });
+
+            Hash h = 0;
+            for (Lit lit {}; lit != cnf.nVars() * 2; ++lit)
+                combine(&h, old_color()(lit));
+            return h;
         }
         Hash cnf_hash() {
             cross_reference();
             return hash_sum<Clause>(cnf.clauses(), [this](const Clause cl) { return clause_hash(cl); });
         }
-        std::optional<std::string> check_progress() {
+        std::optional<Hash> check_progress() {
             // few hits at the start
-            if (iteration <= 2) return std::nullopt;
+            if (iteration < cfg.first_progress_check_iteration) return std::nullopt;
 
             unique_hashes.reserve(previous_unique_hashes);
             const Hash vh = hash_sum<LitColors>(old_color().colors, [this](LitColors lc) {
@@ -152,19 +161,32 @@ namespace CNF {
                 return vh;
             });
             if (unique_hashes.size() <= previous_unique_hashes)
-                return std::to_string(vh);
+                return vh;
             previous_unique_hashes = unique_hashes.size();
             unique_hashes.clear();
             return std::nullopt;
         }
-        std::string operator () () {
+        Hash run() {
             while (iteration < cfg.depth / 2) {
                 if (const auto result = check_progress())
                     return *result;
                 iteration_step();
             }
-            const Hash h = cfg.depth % 2 == 0 ? variable_hash() : cnf_hash();
-            return std::to_string(h);
+            return cfg.depth % 2 == 0 ? variable_hash() : cnf_hash();
+        }
+        std::string operator () () {
+            std::string result = std::to_string(run());
+            if (cfg.return_measurements) {
+                const auto elapsed = Clock::now() - start_time;
+                const auto parsing_time = start_time - parsing_start_time;
+                result += "," + std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count())
+                        + "," + std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(parsing_time).count());
+                double iteration_count = iteration;
+                if (iteration * 2 >= cfg.depth)
+                    iteration_count = cfg.depth / 2.;
+                result += "," + std::to_string(iteration_count);
+            }
+            return result;
         }
     };
 
@@ -176,11 +198,12 @@ namespace CNF {
      * @param depth maximum iterations / 2, half iterations hash clause labels
      * @param cross_reference_literals whether the information which literals
      * belong to the same variable should be used in the calculation
+     * @param optimize_first_iteration whether the first iteration should be
+     * optimized
      * @param first_progress_check_iteration the first iteration in which the
      * progress check runs
-     * @param return_iteration_count whether the amount of iterations that were
-     * calculated (possibly half) should be returned
-     * @param return_time whether the calculation time and parsing time should
+     * @param return_measurements whether the calculation time and parsing time
+     * and the amount of iterations that were calculated (possibly half) should
      * be returned
      * @return comma separated list, std::string Weisfeiler-Leman hash,
      * possibly iteration count, calculation time and parsing time
@@ -190,24 +213,19 @@ namespace CNF {
 
         const unsigned depth = 13,
         const bool cross_reference_literals = true,
+        const bool rehash_clauses = true,
+        const bool optimize_first_iteration = true,
         const unsigned first_progress_check_iteration = 3,
-
-        const bool return_iteration_count = true,
-        const bool return_time = true
+        const bool return_measurements = true
     ) {
-        WeisfeilerLemanHasher hasher(filename, WLHRuntimeConfig {
+        return WeisfeilerLemanHasher(filename, WLHRuntimeConfig {
             depth,
             cross_reference_literals,
+            rehash_clauses,
+            optimize_first_iteration,
             first_progress_check_iteration,
-            return_iteration_count,
-            return_time
-        });
-        std::string result = hasher();
-        const auto elapsed = WeisfeilerLemanHasher<>::Clock::now() - hasher.start_time;
-        const auto parsing_time = hasher.start_time - hasher.parsing_start_time;
-        result += "," + std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count())
-                + "," + std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(parsing_time).count());
-        return result;
+            return_measurements
+        })();
     }
 } // namespace CNF
 

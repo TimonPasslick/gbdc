@@ -132,7 +132,7 @@ PYBIND11_MODULE(gbdc, m) {
     m.def("opb_base_feature_names", &feature_names<OPB::BaseFeatures>, "Get OPB Base Feature Names");
     m.def("gbdhash", &CNF::gbdhash, "Calculates GBD-Hash (md5 of normalized file) of given DIMACS CNF file.", py::arg("filename"));
     m.def("isohash", &CNF::isohash, "Calculates ISO-Hash (md5 of sorted degree sequence) of given DIMACS CNF file.", py::arg("filename"));
-    m.def("weisfeiler_leman_hash", &CNF::weisfeiler_leman_hash, "Calculates fixed depth Weisfeiler-Leman-Hash of given DIMACS CNF file.", py::arg("filename"), py::arg("depth"), py::arg("cross_reference_literals"), py::arg("first_progress_check_iteration"), py::arg("return_iteration_count"), py::arg("return_time"));
+    m.def("weisfeiler_leman_hash", &CNF::weisfeiler_leman_hash, "Calculates fixed depth Weisfeiler-Leman-Hash of given DIMACS CNF file.", py::arg("filename"), py::arg("depth"), py::arg("cross_reference_literals"), py::arg("rehash_clauses"), py::arg("optimize_first_iteration"), py::arg("first_progress_check_iteration"), py::arg("return_measurements"));
     m.def("opbhash", &OPB::gbdhash, "Calculates OPB-Hash (md5 of normalized file) of given OPB file.", py::arg("filename"));
     m.def("pqbfhash", &PQBF::gbdhash, "Calculates PQBF-Hash (md5 of normalized file) of given PQBF file.", py::arg("filename"));
     m.def("wcnfhash", &WCNF::gbdhash, "Calculates WCNF-Hash (md5 of normalized file) of given WCNF file.", py::arg("filename"));
