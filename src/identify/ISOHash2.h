@@ -54,7 +54,6 @@ namespace CNF {
     struct WeisfeilerLemanHasher {
         const WLHRuntimeConfig cfg;
         using Hash = XXH64_hash_t;
-        constexpr static bool debug_output = false;
         const std::string file; // just for debugging
         using Clock = std::chrono::high_resolution_clock;
         Clock::time_point start_time;
@@ -152,10 +151,8 @@ namespace CNF {
                 unique_hashes.insert(vh);
                 return vh;
             });
-            if (unique_hashes.size() <= previous_unique_hashes) {
-                if constexpr (debug_output) std::cout << iteration << " iterations for " << file << std::endl;
+            if (unique_hashes.size() <= previous_unique_hashes)
                 return std::to_string(vh);
-            }
             previous_unique_hashes = unique_hashes.size();
             unique_hashes.clear();
             return std::nullopt;
@@ -166,7 +163,6 @@ namespace CNF {
                     return *result;
                 iteration_step();
             }
-            if constexpr (debug_output) std::cout << "iteration limit (" << ((double) cfg.depth) / 2 + 1 << ") reached for " << file << std::endl;
             const Hash h = cfg.depth % 2 == 0 ? variable_hash() : cnf_hash();
             return std::to_string(h);
         }
