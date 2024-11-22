@@ -33,7 +33,15 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "src/util/PointerlessCNFFormula.h"
 
 namespace CNF {
-    template <
+    struct WLHRuntimeConfig {
+        const unsigned depth;
+        const bool cross_reference_literals;
+        const unsigned first_progress_check_iteration;
+
+        const bool return_iteration_count;
+        const bool return_time;
+    };
+    template < // compile time config
         bool use_xxh3 = true, // MD5 otherwise
         unsigned hash_size = 64,
         bool carrying_addition = true,
@@ -44,13 +52,7 @@ namespace CNF {
         bool optimize_first_iteration = true
     >
     struct WeisfeilerLemanHasher {
-        const unsigned depth;
-        const bool cross_reference_literals;
-        const unsigned first_progress_check_iteration;
-
-        const bool return_iteration_count;
-        const bool return_time;
-
+        const WLHRuntimeConfig cfg;
         using Hash = XXH64_hash_t;
         constexpr static bool debug_output = false;
         const std::string file; // just for debugging
@@ -105,23 +107,9 @@ namespace CNF {
             return h;
         }
 
-        WeisfeilerLemanHasher(
-            const char* filename,
-
-            const unsigned depth = 13,
-            const bool cross_reference_literals = true,
-            const unsigned first_progress_check_iteration = 3,
-
-            const bool return_iteration_count = true,
-            const bool return_time = true
-        )
+        WeisfeilerLemanHasher(const char* filename, const WLHRuntimeConfig cfg)
                 : file(filename)
-                , depth(depth)
-                , cross_reference_literals(cross_reference_literals)
-                , first_progress_check_iteration(first_progress_check_iteration)
-                , return_iteration_count(return_iteration_count)
-                , return_time(return_time)
-
+                , cfg(cfg)
                 , parsing_start_time(Clock::now())
                 , cnf(filename)
                 , start_time(Clock::now())
@@ -173,13 +161,13 @@ namespace CNF {
             return std::nullopt;
         }
         std::string operator () () {
-            while (iteration < depth / 2) {
+            while (iteration < cfg.depth / 2) {
                 if (const auto result = check_progress())
                     return *result;
                 iteration_step();
             }
-            if constexpr (debug_output) std::cout << "iteration limit (" << ((double) depth) / 2 + 1 << ") reached for " << file << std::endl;
-            const Hash h = depth % 2 == 0 ? variable_hash() : cnf_hash();
+            if constexpr (debug_output) std::cout << "iteration limit (" << ((double) cfg.depth) / 2 + 1 << ") reached for " << file << std::endl;
+            const Hash h = cfg.depth % 2 == 0 ? variable_hash() : cnf_hash();
             return std::to_string(h);
         }
     };
@@ -211,14 +199,13 @@ namespace CNF {
         const bool return_iteration_count = true,
         const bool return_time = true
     ) {
-        WeisfeilerLemanHasher hasher(
-            filename,
+        WeisfeilerLemanHasher hasher(filename, WLHRuntimeConfig {
             depth,
             cross_reference_literals,
             first_progress_check_iteration,
             return_iteration_count,
             return_time
-        );
+        });
         std::string result = hasher();
         const auto elapsed = WeisfeilerLemanHasher<>::Clock::now() - hasher.start_time;
         const auto parsing_time = hasher.start_time - hasher.parsing_start_time;
