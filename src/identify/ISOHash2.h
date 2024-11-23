@@ -24,9 +24,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <chrono>
 #include <functional>
 #include <optional>
+#include <type_traits>
 #include <unordered_set>
 #include <vector>
 
+#include "src/external/md5/md5.h"
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 
@@ -43,15 +45,14 @@ namespace CNF {
     };
     template < // compile time config
         bool use_xxh3 = true, // MD5 otherwise
-        unsigned hash_size = 64,
-        bool carrying_addition = true,
+        unsigned hash_size = 64, // can be either 32 or 64
         unsigned ring_prime_offset = 0, // 0 means no modulo calculations
 
         unsigned formula_optimization_level = 2 // 0 means classic, 1 bounds array, 2 size concatenation
     >
     struct WeisfeilerLemanHasher {
         const WLHRuntimeConfig cfg;
-        using Hash = XXH64_hash_t;
+        using Hash = std::conditional_t<hash_size == 32, std::uint32_t, std::uint64_t>;
         using Clock = std::chrono::high_resolution_clock;
         Clock::time_point start_time;
         Clock::time_point parsing_start_time;
@@ -90,10 +91,24 @@ namespace CNF {
 
         template <typename T> // needs to be flat, no pointers or heap data
         static inline Hash hash(const T t) {
-            return {XXH3_64bits(&t, sizeof(T))};
+            if (use_xxh3)
+                return XXH3_64bits(&t, sizeof(T));
+
+            MD5 md5;
+            md5.consume_binary<T>(t);
+            return md5.finish();
         }
-        static inline void combine(Hash* acc, const Hash in) {
-            *acc += in + (*acc > std::numeric_limits<Hash>::max() - in);
+        static inline void combine(Hash* acc, Hash in) {
+            if constexpr (ring_prime_offset > 0) {
+                constexpr Hash ring_size = ((Hash) 0) - ring_prime_offset;
+                in %= ring_size;
+                const Hash first_overflow_acc = ring_size - in;
+                if (*acc >= first_overflow_acc) {
+                    *acc -= first_overflow_acc;
+                    return;
+                }
+            }
+            *acc += in;
         }
         template <typename T, typename C>
         static inline Hash hash_sum(const C& c, const std::function<Hash(const T&)>& f) {
