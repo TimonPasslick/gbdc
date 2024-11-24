@@ -32,7 +32,9 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 
-#include "src/util/PointerlessCNFFormula.h"
+#include "src/util/CNFFormula.h"
+#include "src/util/IntervalCNFFormula.h"
+#include "src/util/SizeGroupedCNFFormula.h"
 
 namespace CNF {
     struct WLHRuntimeConfig {
@@ -44,11 +46,10 @@ namespace CNF {
         bool return_measurements;
     };
     template < // compile time config
+        typename CNF = SizeGroupedCNFFormula,
         bool use_xxh3 = true, // MD5 otherwise
         unsigned hash_size = 64, // can be either 32 or 64
-        unsigned ring_prime_offset = 0, // 0 means no modulo calculations
-
-        unsigned formula_optimization_level = 2 // 0 means classic, 1 bounds array, 2 size concatenation
+        unsigned ring_prime_offset = 0 // 0 means no modulo calculations
     >
     struct WeisfeilerLemanHasher {
         const WLHRuntimeConfig cfg;
@@ -56,8 +57,8 @@ namespace CNF {
         using Clock = std::chrono::high_resolution_clock;
         Clock::time_point start_time;
         Clock::time_point parsing_start_time;
-        const PointerlessCNFFormula cnf;
-        using Clause = PointerlessCNFFormula::Clause;
+        const CNF cnf;
+        using Clause = typename CNF::Clause;
         struct LitColors {
             Hash p = 0;
             Hash n = 0;

@@ -17,8 +17,8 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  **************************************************************************************************/
 
-#ifndef SRC_UTIL_CNFFORMULA_H_
-#define SRC_UTIL_CNFFORMULA_H_
+#ifndef SRC_UTIL_SIZEGROUPEDCNFFORMULA
+#define SRC_UTIL_SIZEGROUPEDCNFFORMULA
 
 #include <vector>
 #include <algorithm>
@@ -28,52 +28,21 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "src/util/StreamBuffer.h"
 #include "src/util/SolverTypes.h"
 
-template <bool normalized = false>
-class TemplateCNFFormula {
-    For formula;
-    unsigned variables;
+class SizeGroupedCNFFormula {
+    std::vector<std::vector<Lit>*> clause_length_literals;
+    unsigned variables = 0;
 
  public:
-    TemplateCNFFormula() : formula(), variables(0) { }
-
-    explicit TemplateCNFFormula(const char* filename) : TemplateCNFFormula() {
+    explicit inline SizeGroupedCNFFormula(const char* filename) {
         readDimacsFromFile(filename);
     }
-
-    ~TemplateCNFFormula() {
-        for (Cl* clause : formula) {
-            delete clause;
-        }
-    }
-
-    typedef For::const_iterator const_iterator;
-
-    inline const_iterator begin() const {
-        return formula.begin();
-    }
-
-    inline const_iterator end() const {
-        return formula.end();
-    }
-
-    inline const Cl* operator[] (int i) const {
-        return formula[i];
+    ~SizeGroupedCNFFormula() {
+        for (const std::vector<Lit>* clause_length : clause_length_literals)
+            delete clause_length;
     }
 
     inline size_t nVars() const {
         return variables;
-    }
-
-    inline size_t nClauses() const {
-        return formula.size();
-    }
-
-    inline int newVar() {
-        return ++variables;
-    }
-
-    inline void clear() {
-        formula.clear();
     }
 
     struct Clause {
@@ -90,16 +59,27 @@ class TemplateCNFFormula {
         }
     };
     struct ClauseIt {
-        For::const_iterator it;
+        const std::vector<std::vector<Lit>*>& clause_length_literals;
+        unsigned length;
+        std::vector<Lit>::const_iterator clause_begin;
+        std::vector<Lit>::const_iterator subvector_end;
         inline ClauseIt& operator ++ () {
-            ++it;
+            clause_begin += length;
+            if (clause_begin == subvector_end) {
+                while (++length != clause_length_literals.size() && clause_length_literals[length]->size() == 0)
+                    ;
+                if (length != clause_length_literals.size()) {
+                    clause_begin = clause_length_literals[length]->begin();
+                    subvector_end = clause_length_literals[length]->end();
+                }
+            }
             return *this;
         }
         inline Clause operator * () {
-            return Clause {(*it)->begin(), (*it)->end()};
+            return Clause {clause_begin, clause_begin + length};
         }
         inline bool operator != (ClauseIt o) {
-            return it != it;
+            return length != o.length || clause_begin != o.clause_begin;
         }
     };
     struct Clauses {
@@ -113,19 +93,20 @@ class TemplateCNFFormula {
     };
     Clauses clauses() const {
         return Clauses {
-            {formula.begin()},
-            {formula.end()}
+            ++ClauseIt{clause_length_literals, 0, clause_length_literals[0]->begin(), clause_length_literals[0]->end()},
+            {clause_length_literals, (unsigned) clause_length_literals.size(), (*(clause_length_literals.end() - 1))->end()}
         };
     }
 
+private:
     // create gapless representation of variables
     void normalizeVariableNames() {
         std::vector<unsigned> name;
         constexpr unsigned empty = ~0U;
         name.resize(variables+1, empty);
-        unsigned int max = 0;
-        for (Cl* clause : formula) {
-            for (Lit& lit : *clause) {
+        unsigned max = 0;
+        for (std::vector<Lit>* clause_length : clause_length_literals) {
+            for (Lit& lit : *clause_length) {
                 if (name[lit.var()] == empty) name[lit.var()] = max++;
                 lit = Lit(name[lit.var()], lit.sign());
             }
@@ -133,9 +114,20 @@ class TemplateCNFFormula {
         variables = max;
     }
 
+    // https://stackoverflow.com/a/1322548/27720282
+    static inline unsigned next_power_of_2(unsigned n) {
+        n--;
+        n |= n >> 0b00001;
+        n |= n >> 0b00010;
+        n |= n >> 0b00100;
+        n |= n >> 0b01000;
+        n |= n >> 0b10000;
+        n++;
+        return n;
+    }
     void readDimacsFromFile(const char* filename) {
         StreamBuffer in(filename);
-        Cl clause;
+        std::vector<Lit> clause;
         while (in.skipWhitespace()) {
             if (*in == 'p' || *in == 'c') {
                 if (!in.skipLine()) break;
@@ -143,55 +135,27 @@ class TemplateCNFFormula {
                 int plit;
                 while (in.readInteger(&plit)) {
                     if (plit == 0) break;
-                    clause.push_back(Lit(abs(plit), plit < 0));
+                    const unsigned var = abs(plit);
+                    clause.push_back(Lit(var, plit < 0));
+                    if (var > variables) variables = var;
                 }
-                readClause(clause.begin(), clause.end());
+                if (clause.size() >= clause_length_literals.size()) {
+                    const unsigned old_size = clause_length_literals.size();
+                    const unsigned new_size = clause.size() + 1;
+                    clause_length_literals.reserve(next_power_of_2(new_size));
+                    clause_length_literals.resize(new_size);
+                    for (auto it = clause_length_literals.begin() + old_size; it != clause_length_literals.end(); ++it)
+                        *it = new std::vector<Lit>;
+                }
+                std::vector<Lit>& insert_here = *clause_length_literals[clause.size()];
+                insert_here.reserve(next_power_of_2(insert_here.size() + clause.size()));
+                insert_here.insert(insert_here.end(), clause.begin(), clause.end());
                 clause.clear();
             }
         }
-        if constexpr (normalized)
-            normalizeVariableNames();
-    }
-
-    void readClause(std::initializer_list<Lit> list) {
-        readClause(list.begin(), list.end());
-    }
-
-    void readClauses(const For& formula) {
-        for (Cl* clause : formula) {
-            readClause(clause->begin(), clause->end());
-        }
-    }
-
-    template <typename Iterator>
-    void readClause(Iterator begin, Iterator end) {
-        Cl* clause = new Cl { begin, end };
-        if (clause->size() > 0) {
-            // remove redundant literals
-            std::sort(clause->begin(), clause->end());
-            unsigned dup = 0;
-            for (auto it = clause->begin(), jt = clause->begin()+1; jt != clause->end(); ++jt) {
-                if (*it != *jt) {  // unique
-                    if (it->var() == jt->var()) {
-                        delete clause;
-                        return;  // no tautologies
-                    }
-                    ++it;
-                    *it = *jt;
-                } else {
-                    ++dup;
-                }
-            }
-            clause->resize(clause->size() - dup);
-            clause->shrink_to_fit();
-            variables = std::max(variables, (unsigned int)clause->back().var());
-        }
-        formula.push_back(clause);
+        normalizeVariableNames();
     }
 };
 
-using CNFFormula = TemplateCNFFormula<>;
-using NormalizedCNFFormula = TemplateCNFFormula<true>;
-
-#endif  // SRC_UTIL_CNFFORMULA_H_
+#endif  // SRC_UTIL_SIZEGROUPEDCNFFORMULA
 

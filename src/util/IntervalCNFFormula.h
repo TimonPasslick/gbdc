@@ -17,8 +17,8 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  **************************************************************************************************/
 
-#ifndef SRC_UTIL_POINTERLESSCNFFORMULA_H_
-#define SRC_UTIL_POINTERLESSCNFFORMULA_H_
+#ifndef SRC_UTIL_INTERVALCNFFORMULA
+#define SRC_UTIL_INTERVALCNFFORMULA
 
 #include <vector>
 #include <algorithm>
@@ -28,17 +28,14 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "src/util/StreamBuffer.h"
 #include "src/util/SolverTypes.h"
 
-class PointerlessCNFFormula {
-    std::vector<std::vector<Lit>*> clause_length_literals;
+class IntervalCNFFormula {
+    std::vector<Lit> literals;
+    std::vector<unsigned short> clause_lengths;
     unsigned variables = 0;
 
  public:
-    explicit inline PointerlessCNFFormula(const char* filename) {
+    explicit inline IntervalCNFFormula(const char* filename) {
         readDimacsFromFile(filename);
-    }
-    ~PointerlessCNFFormula() {
-        for (const std::vector<Lit>* clause_length : clause_length_literals)
-            delete clause_length;
     }
 
     inline size_t nVars() const {
@@ -59,27 +56,17 @@ class PointerlessCNFFormula {
         }
     };
     struct ClauseIt {
-        const std::vector<std::vector<Lit>*>& clause_length_literals;
-        unsigned length;
         std::vector<Lit>::const_iterator clause_begin;
-        std::vector<Lit>::const_iterator subvector_end;
+        std::vector<unsigned short>::const_iterator length_it;
         inline ClauseIt& operator ++ () {
-            clause_begin += length;
-            if (clause_begin == subvector_end) {
-                while (++length != clause_length_literals.size() && clause_length_literals[length]->size() == 0)
-                    ;
-                if (length != clause_length_literals.size()) {
-                    clause_begin = clause_length_literals[length]->begin();
-                    subvector_end = clause_length_literals[length]->end();
-                }
-            }
+            clause_begin += *(length_it++);
             return *this;
         }
         inline Clause operator * () {
-            return Clause {clause_begin, clause_begin + length};
+            return Clause {clause_begin, clause_begin + *length_it};
         }
         inline bool operator != (ClauseIt o) {
-            return length != o.length || clause_begin != o.clause_begin;
+            return clause_begin != o.clause_begin;
         }
     };
     struct Clauses {
@@ -93,8 +80,8 @@ class PointerlessCNFFormula {
     };
     Clauses clauses() const {
         return Clauses {
-            ++ClauseIt{clause_length_literals, 0, clause_length_literals[0]->begin(), clause_length_literals[0]->end()},
-            {clause_length_literals, (unsigned) clause_length_literals.size(), (*(clause_length_literals.end() - 1))->end()}
+            {literals.begin(), clause_lengths.begin()},
+            {literals.end(), clause_lengths.end()}
         };
     }
 
@@ -105,57 +92,34 @@ private:
         constexpr unsigned empty = ~0U;
         name.resize(variables+1, empty);
         unsigned max = 0;
-        for (std::vector<Lit>* clause_length : clause_length_literals) {
-            for (Lit& lit : *clause_length) {
-                if (name[lit.var()] == empty) name[lit.var()] = max++;
-                lit = Lit(name[lit.var()], lit.sign());
-            }
+        for (Lit& lit : literals) {
+            if (name[lit.var()] == empty) name[lit.var()] = max++;
+            lit = Lit(name[lit.var()], lit.sign());
         }
         variables = max;
     }
 
-    // https://stackoverflow.com/a/1322548/27720282
-    static inline unsigned next_power_of_2(unsigned n) {
-        n--;
-        n |= n >> 0b00001;
-        n |= n >> 0b00010;
-        n |= n >> 0b00100;
-        n |= n >> 0b01000;
-        n |= n >> 0b10000;
-        n++;
-        return n;
-    }
     void readDimacsFromFile(const char* filename) {
         StreamBuffer in(filename);
-        std::vector<Lit> clause;
         while (in.skipWhitespace()) {
             if (*in == 'p' || *in == 'c') {
                 if (!in.skipLine()) break;
             } else {
+                unsigned short length = 0;
                 int plit;
                 while (in.readInteger(&plit)) {
                     if (plit == 0) break;
                     const unsigned var = abs(plit);
-                    clause.push_back(Lit(var, plit < 0));
+                    literals.push_back(Lit(var, plit < 0));
+                    ++length;
                     if (var > variables) variables = var;
                 }
-                if (clause.size() >= clause_length_literals.size()) {
-                    const unsigned old_size = clause_length_literals.size();
-                    const unsigned new_size = clause.size() + 1;
-                    clause_length_literals.reserve(next_power_of_2(new_size));
-                    clause_length_literals.resize(new_size);
-                    for (auto it = clause_length_literals.begin() + old_size; it != clause_length_literals.end(); ++it)
-                        *it = new std::vector<Lit>;
-                }
-                std::vector<Lit>& insert_here = *clause_length_literals[clause.size()];
-                insert_here.reserve(next_power_of_2(insert_here.size() + clause.size()));
-                insert_here.insert(insert_here.end(), clause.begin(), clause.end());
-                clause.clear();
+                clause_lengths.push_back(length);
             }
         }
         normalizeVariableNames();
     }
 };
 
-#endif  // SRC_UTIL_POINTERLESSCNFFORMULA_H_
+#endif  // SRC_UTIL_INTERVALCNFFORMULA
 
