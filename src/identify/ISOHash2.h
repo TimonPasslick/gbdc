@@ -54,6 +54,7 @@ namespace CNF {
     struct WeisfeilerLemanHasher {
         const WLHRuntimeConfig cfg;
         using Hash = std::conditional_t<hash_size == 32, std::uint32_t, std::uint64_t>;
+        constexpr static Hash ring_size = ((Hash) 0) - ring_prime_offset;
         using Clock = std::chrono::high_resolution_clock;
         Clock::time_point start_time;
         Clock::time_point parsing_start_time;
@@ -92,17 +93,31 @@ namespace CNF {
 
         template <typename T> // needs to be flat, no pointers or heap data
         static inline Hash hash(const T t) {
-            if (use_xxh3)
-                return XXH3_64bits(&t, sizeof(T));
+            if constexpr (ring_prime_offset == 0) {
+                if constexpr (use_xxh3)
+                    return XXH3_64bits(&t, sizeof(t));
 
-            MD5 md5;
-            md5.consume_binary<T>(t);
-            return md5.finish();
+                MD5 md5;
+                md5.consume_binary(t);
+                return md5.finish();
+            }
+            constexpr std::uint64_t max = std::numeric_limits<std::uint64_t>::max();
+            std::uint64_t hash = max;
+            const std::uint64_t first_problem = max - (max % ring_size);
+            for (std::uint16_t seed = 0; hash >= first_problem; ++seed) {
+                if (use_xxh3)
+                    hash = XXH3_64bits_withSecret(&t, sizeof(t), &seed, sizeof(seed));
+                else {
+                    MD5 md5;
+                    md5.consume_binary(seed);
+                    md5.consume_binary(t);
+                    hash = md5.finish();
+                }
+            }
+            return hash % ring_size;
         }
         static inline void combine(Hash* acc, Hash in) {
             if constexpr (ring_prime_offset > 0) {
-                constexpr Hash ring_size = ((Hash) 0) - ring_prime_offset;
-                in %= ring_size;
                 const Hash first_overflow_acc = ring_size - in;
                 if (*acc >= first_overflow_acc) {
                     *acc -= first_overflow_acc;
