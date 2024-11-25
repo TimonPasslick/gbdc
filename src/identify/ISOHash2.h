@@ -21,6 +21,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #define ISOHASH2_H_
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <functional>
 #include <optional>
@@ -59,6 +60,9 @@ namespace CNF {
         Clock::time_point start_time;
         const CNF cnf;
         Clock::time_point parsing_start_time;
+        // Wtf is wrong with Python multiprocessing? Unusable
+        static std::atomic_uint64_t parsing_time;
+        static std::atomic_uint64_t calculation_time;
         using Clause = typename CNF::Clause;
         struct LitColors {
             Hash p = 0;
