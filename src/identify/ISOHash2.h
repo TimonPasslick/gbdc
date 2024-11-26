@@ -44,25 +44,27 @@ namespace CNF {
         bool rehash_clauses;
         bool optimize_first_iteration;
         unsigned first_progress_check_iteration;
-        bool return_measurements;
+        bool return_iterations;
     };
+    std::atomic_uint64_t wlh_parsing_time;
+    std::atomic_uint64_t wlh_calculation_time;
+    std::uint64_t weisfeiler_leman_hash_parsing_time() { return wlh_parsing_time; }
+    std::uint64_t weisfeiler_leman_hash_calculation_time() { return wlh_calculation_time; }
     template < // compile time config
         typename CNF = SizeGroupedCNFFormula,
         bool use_xxh3 = true, // MD5 otherwise
-        unsigned hash_size = 64, // can be either 32 or 64
-        unsigned ring_prime_offset = 0 // 0 means no modulo calculations
+        bool use_half_word_hash = false,
+        bool use_prime_ring = false
     >
     struct WeisfeilerLemanHasher {
         const WLHRuntimeConfig cfg;
-        using Hash = std::conditional_t<hash_size == 32, std::uint32_t, std::uint64_t>;
-        constexpr static Hash ring_size = ((Hash) 0) - ring_prime_offset;
+        using Hash = std::conditional_t<use_half_word_hash, std::uint32_t, std::uint64_t>;
+        // https://t5k.org/lists/2small/0bit.html
+        constexpr static Hash ring_size = ((Hash) 0) - use_half_word_hash ? 5 : 59;
         using Clock = std::chrono::high_resolution_clock;
         Clock::time_point start_time;
         const CNF cnf;
         Clock::time_point parsing_start_time;
-        // Wtf is wrong with Python multiprocessing? Unusable
-        static std::atomic_uint64_t parsing_time;
-        static std::atomic_uint64_t calculation_time;
         using Clause = typename CNF::Clause;
         struct LitColors {
             Hash p = 0;
@@ -97,7 +99,7 @@ namespace CNF {
 
         template <typename T> // needs to be flat, no pointers or heap data
         static inline Hash hash(const T t) {
-            if constexpr (ring_prime_offset == 0) {
+            if constexpr (!use_prime_ring) {
                 if constexpr (use_xxh3)
                     return XXH3_64bits(&t, sizeof(t));
 
@@ -121,7 +123,7 @@ namespace CNF {
             return hash % ring_size;
         }
         static inline void combine(Hash* acc, Hash in) {
-            if constexpr (ring_prime_offset > 0) {
+            if constexpr (use_prime_ring) {
                 const Hash first_overflow_acc = ring_size - in;
                 if (*acc >= first_overflow_acc) {
                     *acc -= first_overflow_acc;
@@ -211,11 +213,9 @@ namespace CNF {
         }
         std::string operator () () {
             std::string result = std::to_string(run());
-            if (cfg.return_measurements) {
-                const auto elapsed = Clock::now() - start_time;
-                const auto parsing_time = start_time - parsing_start_time;
-                result += "," + std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count())
-                        + "," + std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(parsing_time).count());
+            wlh_calculation_time += std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start_time).count();
+            wlh_parsing_time += std::chrono::duration_cast<std::chrono::nanoseconds>(start_time - parsing_start_time).count();
+            if (cfg.return_iterations) {
                 double iteration_count = iteration;
                 if (iteration * 2 >= cfg.depth)
                     iteration_count = cfg.depth / 2.;
@@ -225,11 +225,30 @@ namespace CNF {
         }
     };
 
+    template <
+        typename CNF = SizeGroupedCNFFormula,
+        bool use_xxh3 = true,
+        bool use_half_word_hash = false,
+        bool use_prime_ring = false
+    >
+    std::string weisfeiler_leman_hash_generic(const char* filename, const WLHRuntimeConfig cfg) {
+        return WeisfeilerLemanHasher<
+            CNF,
+            use_xxh3,
+            use_half_word_hash,
+            use_prime_ring
+        >(filename, cfg)();
+    }
     /**
      * @brief Comparing Weisfeiler-Leman hashes is approximately as strong as
      * running the Weisfeiler-Leman algorithm on the literal hypergraph.
      * Runtime O(h*n), space O(n).
      * @param filename benchmark instance
+     * @param formula_optimization_level how optimized the CNF formula RAM
+     * usage should be, levels 0, 1 and 2
+     * @param use_xxh3 whether to use XXH3 or MD5
+     * @param use_half_word_hash whether to use 32 or 64 bit hashes
+     * @param use_prime_ring whether to add hashes in a prime ring or 2^N
      * @param depth maximum iterations / 2, half iterations hash clause labels
      * @param cross_reference_literals whether the information which literals
      * belong to the same variable should be used in the calculation
@@ -237,30 +256,65 @@ namespace CNF {
      * optimized
      * @param first_progress_check_iteration the first iteration in which the
      * progress check runs
-     * @param return_measurements whether the calculation time and parsing time
-     * and the amount of iterations that were calculated (possibly half) should
-     * be returned
+     * @param return_iterations whether the amount of iterations that were
+     * calculated (possibly half) should be returned
      * @return comma separated list, std::string Weisfeiler-Leman hash,
-     * possibly iteration count, calculation time and parsing time
+     * possibly iteration count
      */
     std::string weisfeiler_leman_hash(
         const char* filename,
+
+        const unsigned formula_optimization_level = 2,
+        const bool use_xxh3 = true,
+        const bool use_half_word_hash = false,
+        const bool use_prime_ring = false,
 
         const unsigned depth = 13,
         const bool cross_reference_literals = true,
         const bool rehash_clauses = true,
         const bool optimize_first_iteration = true,
         const unsigned first_progress_check_iteration = 3,
-        const bool return_measurements = true
+        const bool return_iterations = true
     ) {
-        return WeisfeilerLemanHasher(filename, WLHRuntimeConfig {
+        constexpr std::string (*generic_functions[24])(const char* filename, const WLHRuntimeConfig cfg) = {
+            weisfeiler_leman_hash_generic<NormalizedCNFFormula, false, false, false>,
+            weisfeiler_leman_hash_generic<NormalizedCNFFormula, false, false, true>,
+            weisfeiler_leman_hash_generic<NormalizedCNFFormula, false, true, false>,
+            weisfeiler_leman_hash_generic<NormalizedCNFFormula, false, true, true>,
+            weisfeiler_leman_hash_generic<NormalizedCNFFormula, true, false, false>,
+            weisfeiler_leman_hash_generic<NormalizedCNFFormula, true, false, true>,
+            weisfeiler_leman_hash_generic<NormalizedCNFFormula, true, true, false>,
+            weisfeiler_leman_hash_generic<NormalizedCNFFormula, true, true, true>,
+            weisfeiler_leman_hash_generic<IntervalCNFFormula, false, false, false>,
+            weisfeiler_leman_hash_generic<IntervalCNFFormula, false, false, true>,
+            weisfeiler_leman_hash_generic<IntervalCNFFormula, false, true, false>,
+            weisfeiler_leman_hash_generic<IntervalCNFFormula, false, true, true>,
+            weisfeiler_leman_hash_generic<IntervalCNFFormula, true, false, false>,
+            weisfeiler_leman_hash_generic<IntervalCNFFormula, true, false, true>,
+            weisfeiler_leman_hash_generic<IntervalCNFFormula, true, true, false>,
+            weisfeiler_leman_hash_generic<IntervalCNFFormula, true, true, true>,
+            weisfeiler_leman_hash_generic<SizeGroupedCNFFormula, false, false, false>,
+            weisfeiler_leman_hash_generic<SizeGroupedCNFFormula, false, false, true>,
+            weisfeiler_leman_hash_generic<SizeGroupedCNFFormula, false, true, false>,
+            weisfeiler_leman_hash_generic<SizeGroupedCNFFormula, false, true, true>,
+            weisfeiler_leman_hash_generic<SizeGroupedCNFFormula, true, false, false>,
+            weisfeiler_leman_hash_generic<SizeGroupedCNFFormula, true, false, true>,
+            weisfeiler_leman_hash_generic<SizeGroupedCNFFormula, true, true, false>,
+            weisfeiler_leman_hash_generic<SizeGroupedCNFFormula, true, true, true>,
+        };
+        return generic_functions[
+            (1 << 3) * formula_optimization_level +
+            (1 << 2) * use_xxh3 +
+            (1 << 1) * use_half_word_hash +
+            (1 << 0) * use_prime_ring
+        ](filename, {
             depth,
             cross_reference_literals,
             rehash_clauses,
             optimize_first_iteration,
             first_progress_check_iteration,
-            return_measurements
-        })();
+            return_iterations
+        });
     }
 } // namespace CNF
 
