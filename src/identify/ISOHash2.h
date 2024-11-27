@@ -58,9 +58,9 @@ namespace CNF {
         // https://t5k.org/lists/2small/0bit.html
         constexpr static Hash ring_size = ((Hash) 0) - use_half_word_hash ? 5 : 59;
         using Clock = std::chrono::high_resolution_clock;
-        Clock::time_point start_time;
-        const CNF cnf;
         Clock::time_point parsing_start_time;
+        const CNF cnf;
+        Clock::time_point start_time;
         using Clause = typename CNF::Clause;
         struct LitColors {
             Hash p = 0;
