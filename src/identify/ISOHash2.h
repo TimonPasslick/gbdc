@@ -44,12 +44,8 @@ namespace CNF {
         bool rehash_clauses;
         bool optimize_first_iteration;
         unsigned first_progress_check_iteration;
-        bool return_iterations;
+        bool return_measurements;
     };
-    std::atomic_uint64_t wlh_parsing_time;
-    std::atomic_uint64_t wlh_calculation_time;
-    std::uint64_t weisfeiler_leman_hash_parsing_time() { return wlh_parsing_time; }
-    std::uint64_t weisfeiler_leman_hash_calculation_time() { return wlh_calculation_time; }
     template < // compile time config
         typename CNF = SizeGroupedCNFFormula,
         bool use_xxh3 = true, // MD5 otherwise
@@ -213,13 +209,14 @@ namespace CNF {
         }
         std::string operator () () {
             std::string result = std::to_string(run());
-            wlh_calculation_time += std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start_time).count();
-            wlh_parsing_time += std::chrono::duration_cast<std::chrono::nanoseconds>(start_time - parsing_start_time).count();
-            if (cfg.return_iterations) {
-                double iteration_count = iteration;
-                if (iteration * 2 >= cfg.depth)
-                    iteration_count = cfg.depth / 2.;
-                result += "," + std::to_string(iteration_count);
+            if (cfg.return_measurements) {
+                const auto calculation_time = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start_time).count();
+                const auto parsing_time = std::chrono::duration_cast<std::chrono::nanoseconds>(start_time - parsing_start_time).count();
+                const double iteration_count = std::min<double>(iteration, cfg.depth / 2.);
+                result +=
+                    "," + std::to_string(parsing_time) +
+                    "," + std::to_string(calculation_time) +
+                    "," + std::to_string(iteration_count);
             }
             return result;
         }
@@ -256,8 +253,9 @@ namespace CNF {
      * optimized
      * @param first_progress_check_iteration the first iteration in which the
      * progress check runs
-     * @param return_iterations whether the amount of iterations that were
-     * calculated (possibly half) should be returned
+     * @param return_measurements whether the parsing time, the calculation
+     * time and the amount of iterations that were calculated (possibly half)
+     * should be returned
      * @return comma separated list, std::string Weisfeiler-Leman hash,
      * possibly iteration count
      */
@@ -274,7 +272,7 @@ namespace CNF {
         const bool rehash_clauses = true,
         const bool optimize_first_iteration = true,
         const unsigned first_progress_check_iteration = 3,
-        const bool return_iterations = true
+        const bool return_measurements = true
     ) {
         constexpr std::string (*generic_functions[24])(const char* filename, const WLHRuntimeConfig cfg) = {
             weisfeiler_leman_hash_generic<NormalizedCNFFormula, false, false, false>,
@@ -313,7 +311,7 @@ namespace CNF {
             rehash_clauses,
             optimize_first_iteration,
             first_progress_check_iteration,
-            return_iterations
+            return_measurements
         });
     }
 } // namespace CNF
