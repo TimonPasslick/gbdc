@@ -29,6 +29,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <unordered_set>
 #include <vector>
 
+#include "src/external/nadeau.h"
+
 #include "src/external/md5/md5.h"
 #define XXH_INLINE_ALL
 #include "xxhash.h"
@@ -58,6 +60,7 @@ namespace CNF {
         // https://t5k.org/lists/2small/0bit.html
         constexpr static Hash ring_size = ((Hash) 0) - use_half_word_hash ? 5 : 59;
         using Clock = std::chrono::high_resolution_clock;
+        size_t start_mem;
         Clock::time_point parsing_start_time;
         const CNF cnf;
         Clock::time_point start_time;
@@ -138,6 +141,7 @@ namespace CNF {
 
         WeisfeilerLemanHasher(const char* filename, const WLHRuntimeConfig cfg)
                 : cfg(cfg)
+                , start_mem(getCurrentRSS())
                 , parsing_start_time(Clock::now())
                 , cnf(filename)
                 , start_time(Clock::now())
@@ -212,10 +216,12 @@ namespace CNF {
             if (cfg.return_measurements) {
                 const auto calculation_time = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start_time).count();
                 const auto parsing_time = std::chrono::duration_cast<std::chrono::nanoseconds>(start_time - parsing_start_time).count();
+                const size_t mem_usage = getCurrentRSS() - start_mem;
                 const double iteration_count = std::min<double>(iteration, cfg.depth / 2.);
                 result +=
                     "," + std::to_string(parsing_time) +
                     "," + std::to_string(calculation_time) +
+                    "," + std::to_string(mem_usage) +
                     "," + std::to_string(iteration_count);
             }
             return result;
@@ -254,10 +260,10 @@ namespace CNF {
      * @param first_progress_check_iteration the first iteration in which the
      * progress check runs
      * @param return_measurements whether the parsing time, the calculation
-     * time and the amount of iterations that were calculated (possibly half)
-     * should be returned
+     * time (both nanoseconds), the memory usage (bytes) and the amount of
+     * iterations that were calculated (possibly half) should be returned
      * @return comma separated list, std::string Weisfeiler-Leman hash,
-     * possibly iteration count
+     * possibly measurements
      */
     std::string weisfeiler_leman_hash(
         const char* filename,
