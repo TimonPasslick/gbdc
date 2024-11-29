@@ -85,7 +85,7 @@ class TemplateCNFFormula {
         inline It end() const {
             return end_;
         }
-        inline std::size_t size() const {
+        inline unsigned short size() const {
             return end_ - begin_;
         }
     };

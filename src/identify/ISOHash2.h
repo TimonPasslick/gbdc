@@ -168,7 +168,7 @@ namespace CNF {
             for (const Clause cl : cnf.clauses()) {
                 const Hash clh = (!in_optimized_iteration()) ?
                     clause_hash(cl)
-                    : hash((unsigned) cl.size());
+                    : hash(cl.size());
                 for (const Lit lit : cl)
                     combine(&new_color()(lit), clh);
             }
