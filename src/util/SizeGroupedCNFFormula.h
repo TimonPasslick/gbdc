@@ -98,7 +98,7 @@ class SizeGroupedCNFFormula {
         };
     }
 
-private:
+ private:
     // create gapless representation of variables
     void normalizeVariableNames() {
         std::vector<unsigned> name;

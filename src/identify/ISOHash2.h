@@ -35,7 +35,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 
-#include "src/util/CNFFormula.h"
+#include "src/util/NaiveCNFFormula.h"
 #include "src/util/IntervalCNFFormula.h"
 #include "src/util/SizeGroupedCNFFormula.h"
 
@@ -281,14 +281,14 @@ namespace CNF {
         const bool return_measurements = true
     ) {
         constexpr std::string (*generic_functions[24])(const char* filename, const WLHRuntimeConfig cfg) = {
-            weisfeiler_leman_hash_generic<NormalizedCNFFormula, false, false, false>,
-            weisfeiler_leman_hash_generic<NormalizedCNFFormula, false, false, true>,
-            weisfeiler_leman_hash_generic<NormalizedCNFFormula, false, true, false>,
-            weisfeiler_leman_hash_generic<NormalizedCNFFormula, false, true, true>,
-            weisfeiler_leman_hash_generic<NormalizedCNFFormula, true, false, false>,
-            weisfeiler_leman_hash_generic<NormalizedCNFFormula, true, false, true>,
-            weisfeiler_leman_hash_generic<NormalizedCNFFormula, true, true, false>,
-            weisfeiler_leman_hash_generic<NormalizedCNFFormula, true, true, true>,
+            weisfeiler_leman_hash_generic<NaiveCNFFormula, false, false, false>,
+            weisfeiler_leman_hash_generic<NaiveCNFFormula, false, false, true>,
+            weisfeiler_leman_hash_generic<NaiveCNFFormula, false, true, false>,
+            weisfeiler_leman_hash_generic<NaiveCNFFormula, false, true, true>,
+            weisfeiler_leman_hash_generic<NaiveCNFFormula, true, false, false>,
+            weisfeiler_leman_hash_generic<NaiveCNFFormula, true, false, true>,
+            weisfeiler_leman_hash_generic<NaiveCNFFormula, true, true, false>,
+            weisfeiler_leman_hash_generic<NaiveCNFFormula, true, true, true>,
             weisfeiler_leman_hash_generic<IntervalCNFFormula, false, false, false>,
             weisfeiler_leman_hash_generic<IntervalCNFFormula, false, false, true>,
             weisfeiler_leman_hash_generic<IntervalCNFFormula, false, true, false>,
