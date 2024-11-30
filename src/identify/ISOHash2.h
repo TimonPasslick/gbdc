@@ -29,6 +29,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <unordered_set>
 #include <vector>
 
+#include <sys/resource.h>
+
 #include "src/external/nadeau.h"
 
 #include "src/external/md5/md5.h"
@@ -38,6 +40,13 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "src/util/NaiveCNFFormula.h"
 #include "src/util/IntervalCNFFormula.h"
 #include "src/util/SizeGroupedCNFFormula.h"
+
+//in KB
+long get_mem_usage()
+{
+    struct rusage usage;
+    return getrusage(RUSAGE_SELF, &usage) == 0 ? usage.ru_maxrss : -1;
+}
 
 namespace CNF {
     struct WLHRuntimeConfig {
@@ -60,7 +69,7 @@ namespace CNF {
         // https://t5k.org/lists/2small/0bit.html
         constexpr static Hash ring_size = ((Hash) 0) - use_half_word_hash ? 5 : 59;
         using Clock = std::chrono::high_resolution_clock;
-        size_t start_mem;
+        long start_mem;
         Clock::time_point parsing_start_time;
         const CNF cnf;
         Clock::time_point start_time;
@@ -141,7 +150,7 @@ namespace CNF {
 
         WeisfeilerLemanHasher(const char* filename, const WLHRuntimeConfig cfg)
                 : cfg(cfg)
-                , start_mem(getCurrentRSS())
+                , start_mem(get_mem_usage())
                 , parsing_start_time(Clock::now())
                 , cnf(filename)
                 , start_time(Clock::now())
@@ -216,8 +225,7 @@ namespace CNF {
             if (cfg.return_measurements) {
                 const auto calculation_time = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start_time).count();
                 const auto parsing_time = std::chrono::duration_cast<std::chrono::nanoseconds>(start_time - parsing_start_time).count();
-                const size_t end_mem = getCurrentRSS();
-                const size_t mem_usage = start_mem != 0 && end_mem != 0 ? end_mem - start_mem : 0;
+                const long mem_usage = get_mem_usage() - start_mem;
                 const double iteration_count = std::min<double>(iteration, cfg.depth / 2.);
                 result +=
                     "," + std::to_string(parsing_time) +
