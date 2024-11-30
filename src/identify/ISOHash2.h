@@ -216,7 +216,8 @@ namespace CNF {
             if (cfg.return_measurements) {
                 const auto calculation_time = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start_time).count();
                 const auto parsing_time = std::chrono::duration_cast<std::chrono::nanoseconds>(start_time - parsing_start_time).count();
-                const size_t mem_usage = getCurrentRSS() - start_mem;
+                const size_t end_mem = getCurrentRSS();
+                const size_t mem_usage = start_mem != 0 && end_mem != 0 ? end_mem - start_mem : 0;
                 const double iteration_count = std::min<double>(iteration, cfg.depth / 2.);
                 result +=
                     "," + std::to_string(parsing_time) +
