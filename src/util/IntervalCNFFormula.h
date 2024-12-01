@@ -30,7 +30,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 class IntervalCNFFormula {
     std::vector<Lit> literals;
-    std::vector<unsigned short> clause_lengths;
     unsigned variables = 0;
 
  public:
@@ -51,22 +50,21 @@ class IntervalCNFFormula {
         inline It end() const {
             return end_;
         }
-        inline unsigned short size() const {
+        inline unsigned size() const {
             return end_ - begin_;
         }
     };
     struct ClauseIt {
-        std::vector<Lit>::const_iterator clause_begin;
-        std::vector<unsigned short>::const_iterator length_it;
+        std::vector<Lit>::const_iterator length_slot;
         inline ClauseIt& operator ++ () {
-            clause_begin += *(length_it++);
+            length_slot += length_slot->x;
             return *this;
         }
         inline Clause operator * () {
-            return Clause {clause_begin, clause_begin + *length_it};
+            return Clause {length_slot + 1, length_slot + length_slot->x};
         }
-        inline bool operator != (ClauseIt o) {
-            return clause_begin != o.clause_begin;
+        inline bool operator != (const ClauseIt o) {
+            return length_slot != o.length_slot;
         }
     };
     struct Clauses {
@@ -79,22 +77,59 @@ class IntervalCNFFormula {
         }
     };
     Clauses clauses() const {
-        return Clauses {
-            {literals.begin(), clause_lengths.begin()},
-            {literals.end(), clause_lengths.end()}
-        };
+        return Clauses {{literals.begin()}, {literals.end()}};
     }
 
  private:
+ struct MutClause {
+        using It = std::vector<Lit>::iterator;
+        const It begin_, end_;
+        inline It begin() const {
+            return begin_;
+        }
+        inline It end() const {
+            return end_;
+        }
+        inline unsigned size() const {
+            return end_ - begin_;
+        }
+    };
+    struct MutClauseIt {
+        std::vector<Lit>::iterator length_slot;
+        inline MutClauseIt& operator ++ () {
+            length_slot += length_slot->x;
+            return *this;
+        }
+        inline MutClause operator * () {
+            return MutClause {length_slot + 1, length_slot + length_slot->x};
+        }
+        inline bool operator != (const MutClauseIt o) {
+            return length_slot != o.length_slot;
+        }
+    };
+    struct MutClauses {
+        const MutClauseIt begin_, end_;
+        inline MutClauseIt begin() const {
+            return begin_;
+        }
+        inline MutClauseIt end() const {
+            return end_;
+        }
+    };
+    MutClauses mut_clauses() {
+        return MutClauses {{literals.begin()}, {literals.end()}};
+    }
     // create gapless representation of variables
     void normalizeVariableNames() {
         std::vector<unsigned> name;
         constexpr unsigned empty = ~0U;
         name.resize(variables+1, empty);
         unsigned max = 0;
-        for (Lit& lit : literals) {
-            if (name[lit.var()] == empty) name[lit.var()] = max++;
-            lit = Lit(name[lit.var()], lit.sign());
+        for (MutClause cl : mut_clauses()) {
+            for (Lit& lit : cl) {
+                if (name[lit.var()] == empty) name[lit.var()] = max++;
+                lit = Lit(name[lit.var()], lit.sign());
+            }
         }
         variables = max;
     }
@@ -105,8 +140,10 @@ class IntervalCNFFormula {
             if (*in == 'p' || *in == 'c') {
                 if (!in.skipLine()) break;
             } else {
-                unsigned short length = 0;
+                unsigned length = 1; // including length slot
                 int plit;
+                literals.push_back({});
+                unsigned& length_slot = literals.back().x;
                 while (in.readInteger(&plit)) {
                     if (plit == 0) break;
                     const unsigned var = abs(plit);
@@ -114,7 +151,7 @@ class IntervalCNFFormula {
                     ++length;
                     if (var > variables) variables = var;
                 }
-                clause_lengths.push_back(length);
+                length_slot = length;
             }
         }
         normalizeVariableNames();

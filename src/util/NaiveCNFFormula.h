@@ -50,7 +50,7 @@ class NaiveCNFFormula {
         inline It end() const {
             return end_;
         }
-        inline unsigned short size() const {
+        inline unsigned size() const {
             return end_ - begin_;
         }
     };
@@ -63,7 +63,7 @@ class NaiveCNFFormula {
         inline Clause operator * () {
             return Clause {(*it)->begin(), (*it)->end()};
         }
-        inline bool operator != (ClauseIt o) {
+        inline bool operator != (const ClauseIt o) {
             return it != it;
         }
     };

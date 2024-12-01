@@ -54,7 +54,7 @@ class SizeGroupedCNFFormula {
         inline It end() const {
             return end_;
         }
-        inline unsigned short size() const {
+        inline unsigned size() const {
             return end_ - begin_;
         }
     };
@@ -78,7 +78,7 @@ class SizeGroupedCNFFormula {
         inline Clause operator * () {
             return Clause {clause_begin, clause_begin + length};
         }
-        inline bool operator != (ClauseIt o) {
+        inline bool operator != (const ClauseIt o) {
             return length != o.length || clause_begin != o.clause_begin;
         }
     };
