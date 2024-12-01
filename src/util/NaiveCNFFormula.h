@@ -36,6 +36,11 @@ class NaiveCNFFormula {
     explicit inline NaiveCNFFormula(const char* filename) {
         readDimacsFromFile(filename);
     }
+    ~NaiveCNFFormula() {
+        for (Cl* clause : formula) {
+            delete clause;
+        }
+    }
 
     inline size_t nVars() const {
         return variables;
