@@ -150,7 +150,7 @@ class IntervalCNFFormula {
                     ++length;
                     if (var > variables) variables = var;
                 }
-                literals[literals.size() - length] = length;
+                literals[literals.size() - length].x = length;
             }
         }
         normalizeVariableNames();
