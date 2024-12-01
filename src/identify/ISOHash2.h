@@ -289,7 +289,6 @@ namespace CNF {
         const unsigned first_progress_check_iteration = 3,
         const bool return_measurements = true
     ) {
-        std::cout << "Computing WL hash" << std::endl;
         constexpr std::string (*generic_functions[24])(const char* filename, const WLHRuntimeConfig cfg) = {
             weisfeiler_leman_hash_generic<NaiveCNFFormula, false, false, false>,
             weisfeiler_leman_hash_generic<NaiveCNFFormula, false, false, true>,

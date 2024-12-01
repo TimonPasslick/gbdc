@@ -135,14 +135,12 @@ class IntervalCNFFormula {
     }
 
     void readDimacsFromFile(const char* filename) {
-        std::cout << "reading DIMACS" << std::endl;
         StreamBuffer in(filename);
         while (in.skipWhitespace()) {
             if (*in == 'p' || *in == 'c') {
                 if (!in.skipLine()) break;
             } else {
                 literals.push_back({});
-                unsigned& length_slot = literals.back().x;
                 unsigned length = 1; // including length slot
                 int plit;
                 while (in.readInteger(&plit)) {
@@ -152,10 +150,9 @@ class IntervalCNFFormula {
                     ++length;
                     if (var > variables) variables = var;
                 }
-                length_slot = length;
+                literals[literals.size() - length] = length;
             }
         }
-        std::cout << "normalizing variable names" << std::endl;
         normalizeVariableNames();
     }
 };
