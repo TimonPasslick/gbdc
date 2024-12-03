@@ -33,8 +33,8 @@ class NaiveCNFFormula {
     unsigned variables;
 
  public:
-    explicit inline NaiveCNFFormula(const char* filename) {
-        readDimacsFromFile(filename);
+    explicit inline NaiveCNFFormula(const char* filename, const bool shrink_to_fit) {
+        readDimacsFromFile(filename, shrink_to_fit);
     }
     ~NaiveCNFFormula() {
         for (Cl* clause : formula) {
@@ -104,7 +104,7 @@ class NaiveCNFFormula {
         variables = max;
     }
 
-    void readDimacsFromFile(const char* filename) {
+    void readDimacsFromFile(const char* filename, const bool shrink_to_fit) {
         StreamBuffer in(filename);
         while (in.skipWhitespace()) {
             if (*in == 'p' || *in == 'c') {
@@ -118,6 +118,7 @@ class NaiveCNFFormula {
                     clause->push_back(Lit(var, plit < 0));
                     if (var > variables) variables = var;
                 }
+                if (shrink_to_fit) clause->shrink_to_fit();
                 formula.push_back(clause);
             }
         }

@@ -55,6 +55,7 @@ namespace CNF {
         bool rehash_clauses;
         bool optimize_first_iteration;
         unsigned first_progress_check_iteration;
+        bool shrink_to_fit;
         bool return_measurements;
     };
     template < // compile time config
@@ -152,7 +153,7 @@ namespace CNF {
                 : cfg(cfg)
                 , start_mem(get_mem_usage())
                 , parsing_start_time(Clock::now())
-                , cnf(filename)
+                , cnf(filename, cfg.shrink_to_fit)
                 , start_time(Clock::now())
                 , color_functions {ColorFunction(cnf.nVars()), ColorFunction(cnf.nVars())}
         {
@@ -287,6 +288,7 @@ namespace CNF {
         const bool rehash_clauses = true,
         const bool optimize_first_iteration = true,
         const unsigned first_progress_check_iteration = 3,
+        const bool shrink_to_fit = true,
         const bool return_measurements = true
     ) {
         constexpr std::string (*generic_functions[24])(const char* filename, const WLHRuntimeConfig cfg) = {
@@ -326,6 +328,7 @@ namespace CNF {
             rehash_clauses,
             optimize_first_iteration,
             first_progress_check_iteration,
+            shrink_to_fit,
             return_measurements
         });
     }

@@ -33,8 +33,8 @@ class IntervalCNFFormula {
     unsigned variables = 0;
 
  public:
-    explicit inline IntervalCNFFormula(const char* filename) {
-        readDimacsFromFile(filename);
+    explicit inline IntervalCNFFormula(const char* filename, const bool shrink_to_fit) {
+        readDimacsFromFile(filename, shrink_to_fit);
     }
 
     inline size_t nVars() const {
@@ -134,7 +134,7 @@ class IntervalCNFFormula {
         variables = max;
     }
 
-    void readDimacsFromFile(const char* filename) {
+    void readDimacsFromFile(const char* filename, const bool shrink_to_fit) {
         StreamBuffer in(filename);
         while (in.skipWhitespace()) {
             if (*in == 'p' || *in == 'c') {
@@ -153,6 +153,7 @@ class IntervalCNFFormula {
                 literals[literals.size() - length].x = length;
             }
         }
+        if (shrink_to_fit) literals.shrink_to_fit();
         normalizeVariableNames();
     }
 };

@@ -33,8 +33,8 @@ class SizeGroupedCNFFormula {
     unsigned variables = 0;
 
  public:
-    explicit inline SizeGroupedCNFFormula(const char* filename) {
-        readDimacsFromFile(filename);
+    explicit inline SizeGroupedCNFFormula(const char* filename, const bool shrink_to_fit) {
+        readDimacsFromFile(filename, shrink_to_fit);
     }
     ~SizeGroupedCNFFormula() {
         for (const std::vector<Lit>* clause_length : clause_length_literals)
@@ -125,7 +125,7 @@ class SizeGroupedCNFFormula {
         n++;
         return n;
     }
-    void readDimacsFromFile(const char* filename) {
+    void readDimacsFromFile(const char* filename, const bool shrink_to_fit) {
         StreamBuffer in(filename);
         std::vector<Lit> clause;
         while (in.skipWhitespace()) {
@@ -153,6 +153,9 @@ class SizeGroupedCNFFormula {
                 clause.clear();
             }
         }
+        if (shrink_to_fit)
+            for (std::vector<Lit>* clause_length : clause_length_literals)
+                clause_length->shrink_to_fit();
         normalizeVariableNames();
     }
 };
