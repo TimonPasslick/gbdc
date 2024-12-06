@@ -54,7 +54,7 @@ namespace CNF {
         bool cross_reference_literals;
         bool rehash_clauses;
         bool optimize_first_iteration;
-        unsigned first_progress_check_iteration;
+        unsigned progress_check_iteration;
         bool shrink_to_fit;
         bool return_measurements;
     };
@@ -199,7 +199,8 @@ namespace CNF {
         }
         std::optional<Hash> check_progress() {
             // few hits at the start
-            if (iteration < cfg.first_progress_check_iteration) return std::nullopt;
+            if ((iteration != cfg.progress_check_iteration && iteration != cfg.progress_check_iteration + 1 && iteration < 6) || iteration == 0)
+                return std::nullopt;
 
             unique_hashes.reserve(previous_unique_hashes);
             const Hash vh = hash_sum<LitColors>(old_color().colors, [this](LitColors lc) {
@@ -267,7 +268,7 @@ namespace CNF {
      * belong to the same variable should be used in the calculation
      * @param optimize_first_iteration whether the first iteration should be
      * optimized
-     * @param first_progress_check_iteration the first iteration in which the
+     * @param progress_check_iteration the iteration after which the
      * progress check runs
      * @param return_measurements whether the parsing time, the calculation
      * time (both nanoseconds), the memory usage (bytes) and the amount of
@@ -287,7 +288,7 @@ namespace CNF {
         const bool cross_reference_literals = true,
         const bool rehash_clauses = true,
         const bool optimize_first_iteration = true,
-        const unsigned first_progress_check_iteration = 3,
+        const unsigned progress_check_iteration = 3,
         const bool shrink_to_fit = true,
         const bool return_measurements = true
     ) {
@@ -327,7 +328,7 @@ namespace CNF {
             cross_reference_literals,
             rehash_clauses,
             optimize_first_iteration,
-            first_progress_check_iteration,
+            progress_check_iteration,
             shrink_to_fit,
             return_measurements
         });
