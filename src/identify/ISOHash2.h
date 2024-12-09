@@ -59,10 +59,10 @@ namespace CNF {
         bool return_measurements;
     };
     template < // compile time config
-        typename CNF = SizeGroupedCNFFormula,
-        bool use_xxh3 = true, // MD5 otherwise
-        bool use_half_word_hash = false,
-        bool use_prime_ring = false
+        typename CNF,
+        bool use_xxh3, // MD5 otherwise
+        bool use_half_word_hash,
+        bool use_prime_ring
     >
     struct WeisfeilerLemanHasher {
         const WLHRuntimeConfig cfg;
@@ -240,10 +240,10 @@ namespace CNF {
     };
 
     template <
-        typename CNF = SizeGroupedCNFFormula,
-        bool use_xxh3 = true,
-        bool use_half_word_hash = false,
-        bool use_prime_ring = false
+        typename CNF,
+        bool use_xxh3,
+        bool use_half_word_hash,
+        bool use_prime_ring
     >
     std::string weisfeiler_leman_hash_generic(const char* filename, const WLHRuntimeConfig cfg) {
         return WeisfeilerLemanHasher<
@@ -281,14 +281,14 @@ namespace CNF {
 
         const unsigned formula_optimization_level = 2,
         const bool use_xxh3 = true,
-        const bool use_half_word_hash = false,
+        const bool use_half_word_hash = true,
         const bool use_prime_ring = false,
 
         const unsigned depth = 13,
         const bool cross_reference_literals = true,
         const bool rehash_clauses = true,
         const bool optimize_first_iteration = true,
-        const unsigned progress_check_iteration = 3,
+        const unsigned progress_check_iteration = 6,
         const bool shrink_to_fit = true,
         const bool return_measurements = true
     ) {
