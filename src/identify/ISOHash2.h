@@ -228,7 +228,7 @@ namespace CNF {
                 const auto calculation_time = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start_time).count();
                 const auto parsing_time = std::chrono::duration_cast<std::chrono::nanoseconds>(start_time - parsing_start_time).count();
                 long mem_usage = get_mem_usage();
-                if (mem_usage == -1 || start_mem == -1):
+                if (mem_usage == -1 || start_mem == -1)
                     mem_usage = -1;
                 else
                     mem_usage -= start_mem;
