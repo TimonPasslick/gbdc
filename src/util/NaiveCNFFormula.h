@@ -30,7 +30,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 class NaiveCNFFormula {
     For formula;
-    unsigned variables;
+    unsigned variables = 0;
 
  public:
     explicit inline NaiveCNFFormula(const char* filename, const bool shrink_to_fit) {
