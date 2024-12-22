@@ -283,7 +283,7 @@ namespace CNF {
     std::string weisfeiler_leman_hash(
         const char* filename,
 
-        const unsigned formula_optimization_level = 0,
+        const unsigned formula_optimization_level = 2,
         const bool use_xxh3 = true,
         const bool use_half_word_hash = true,
         const bool use_prime_ring = false,

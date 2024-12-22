@@ -71,7 +71,7 @@ class NaiveCNFFormula {
             return Clause {(*it)->begin(), (*it)->end()};
         }
         inline bool operator != (const ClauseIt o) {
-            return it != it;
+            return it != o.it;
         }
     };
     struct Clauses {
