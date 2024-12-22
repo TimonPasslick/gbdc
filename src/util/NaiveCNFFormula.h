@@ -36,6 +36,8 @@ class NaiveCNFFormula {
     explicit inline NaiveCNFFormula(const char* filename, const bool shrink_to_fit) {
         readDimacsFromFile(filename, shrink_to_fit);
     }
+    NaiveCNFFormula(const NaiveCNFFormula&) = delete;
+    NaiveCNFFormula& operator=(const NaiveCNFFormula&) = delete;
     ~NaiveCNFFormula() {
         for (Cl* clause : formula) {
             delete clause;
