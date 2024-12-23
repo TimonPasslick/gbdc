@@ -151,7 +151,7 @@ class SizeGroupedCNFFormula {
                 insert_here.reserve(next_power_of_2(insert_here.size() + clause.size()));
                 size_t old_size = insert_here.size();
                 insert_here.insert(insert_here.end(), clause.begin(), clause.end());
-                if (insert_here.size() == old_size) std::cout << "Clause not inserted" << std::endl;
+                if (insert_here.size() == old_size) std::cout << "Clause not inserted, size " << clause.size() << std::endl;
                 clause.clear();
             }
         }
