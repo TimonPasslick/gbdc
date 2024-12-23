@@ -158,8 +158,8 @@ class SizeGroupedCNFFormula {
                 clause_length->shrink_to_fit();
         normalizeVariableNames();
         int count = 0;
-        for (const std::vector<Lit>* clause_length : clause_length_literals)
-            count += clause_length->size();
+        for (int i = 1; i < clause_length_literals.size(); ++i)
+            count += clause_length_literals[i]->size() / i;
         std::cout << "Number of clauses stored in formula: " << count << std::endl;
     }
 };
