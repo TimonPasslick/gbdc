@@ -60,7 +60,7 @@ class SizeGroupedCNFFormula {
     };
     struct ClauseIt {
         const std::vector<std::vector<Lit>*>& clause_length_literals;
-        unsigned length;
+        std::size_t length;
         std::vector<Lit>::const_iterator clause_begin;
         std::vector<Lit>::const_iterator subvector_end;
         inline ClauseIt& operator ++ () {
@@ -94,7 +94,7 @@ class SizeGroupedCNFFormula {
     Clauses clauses() const {
         return Clauses {
             ++ClauseIt{clause_length_literals, 0, clause_length_literals[0]->begin(), clause_length_literals[0]->end()},
-            {clause_length_literals, (unsigned) clause_length_literals.size(), (*(clause_length_literals.end() - 1))->end()}
+            {clause_length_literals, clause_length_literals.size(), (*(clause_length_literals.end() - 1))->end()}
         };
     }
 
