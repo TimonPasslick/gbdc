@@ -120,6 +120,10 @@ class NaiveCNFFormula {
                     clause->push_back(Lit(var, plit < 0));
                     if (var > variables) variables = var;
                 }
+                if (clause->size() == 0) {
+                    delete clause;
+                    continue;
+                }
                 if (shrink_to_fit) clause->shrink_to_fit();
                 formula.push_back(clause);
             }
