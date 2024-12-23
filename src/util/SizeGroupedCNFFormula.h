@@ -139,6 +139,7 @@ class SizeGroupedCNFFormula {
                     clause.push_back(Lit(var, plit < 0));
                     if (var > variables) variables = var;
                 }
+                if (clause.size() == 0) std::cout << "Warning: Empty clause" << std::endl;
                 if (clause.size() >= clause_length_literals.size()) {
                     const unsigned old_size = clause_length_literals.size();
                     const unsigned new_size = clause.size() + 1;
@@ -149,9 +150,7 @@ class SizeGroupedCNFFormula {
                 }
                 std::vector<Lit>& insert_here = *clause_length_literals[clause.size()];
                 insert_here.reserve(next_power_of_2(insert_here.size() + clause.size()));
-                size_t old_size = insert_here.size();
                 insert_here.insert(insert_here.end(), clause.begin(), clause.end());
-                if (insert_here.size() == old_size) std::cout << "Clause not inserted, size " << clause.size() << std::endl;
                 clause.clear();
             }
         }
