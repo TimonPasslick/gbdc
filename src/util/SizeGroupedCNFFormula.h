@@ -139,7 +139,6 @@ class SizeGroupedCNFFormula {
                     clause.push_back(Lit(var, plit < 0));
                     if (var > variables) variables = var;
                 }
-                if (clause.size() == 0) std::cout << "Warning: Empty clause (size grouped)" << std::endl;
                 if (clause.size() >= clause_length_literals.size()) {
                     const unsigned old_size = clause_length_literals.size();
                     const unsigned new_size = clause.size() + 1;
