@@ -24,6 +24,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <iostream>
 
 #include "src/util/StreamBuffer.h"
 #include "src/util/SolverTypes.h"
@@ -128,6 +129,7 @@ class SizeGroupedCNFFormula {
     void readDimacsFromFile(const char* filename, const bool shrink_to_fit) {
         StreamBuffer in(filename);
         std::vector<Lit> clause;
+        unsigned clause_count = 0;  // Debugging: Count the number of clauses
         while (in.skipWhitespace()) {
             if (*in == 'p' || *in == 'c') {
                 if (!in.skipLine()) break;
@@ -151,16 +153,14 @@ class SizeGroupedCNFFormula {
                 insert_here.reserve(next_power_of_2(insert_here.size() + clause.size()));
                 insert_here.insert(insert_here.end(), clause.begin(), clause.end());
                 clause.clear();
+                clause_count++;  // Debugging: Increment clause count
             }
         }
         if (shrink_to_fit)
             for (std::vector<Lit>* clause_length : clause_length_literals)
                 clause_length->shrink_to_fit();
         normalizeVariableNames();
-        int count = 0;
-        for (int i = 1; i < clause_length_literals.size(); ++i)
-            count += clause_length_literals[i]->size() / i;
-        std::cout << "Number of clauses stored in formula: " << count << std::endl;
+        std::cout << "Number of clauses read: " << clause_count << std::endl;  // Debugging: Output clause count
     }
 };
 
