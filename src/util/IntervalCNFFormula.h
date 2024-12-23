@@ -150,7 +150,7 @@ class IntervalCNFFormula {
                     ++length;
                     if (var > variables) variables = var;
                 }
-                if (length != 0)
+                if (length != 1)
                     literals[literals.size() - length].x = length;
                 else {
                     std::cout << "Warning: Empty clause (interval)" << std::endl;

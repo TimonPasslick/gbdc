@@ -121,6 +121,7 @@ class NaiveCNFFormula {
                     if (var > variables) variables = var;
                 }
                 if (clause->size() == 0) {
+                    std::cout << "Warning: Empty clause (naive)" << std::endl;
                     delete clause;
                     continue;
                 }
