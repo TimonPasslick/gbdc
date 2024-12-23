@@ -152,8 +152,10 @@ class IntervalCNFFormula {
                 }
                 if (length != 0)
                     literals[literals.size() - length].x = length;
-                else
+                else {
+                    std::cout << "Warning: Empty clause (interval)" << std::endl;
                     literals.pop_back();
+                }
             }
         }
         if (shrink_to_fit) literals.shrink_to_fit();
