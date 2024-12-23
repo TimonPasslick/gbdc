@@ -157,16 +157,10 @@ namespace CNF {
                 , start_time(Clock::now())
                 , color_functions {ColorFunction(cnf.nVars()), ColorFunction(cnf.nVars())}
         {
-            std::cout << "First clause: ";
-            for (const Lit lit : *cnf.clauses().begin()) {
-                std::cout << lit << " ";
-            }
-            std::cout << std::endl;
-            std::cout << "Second clause :";
-            for (const Lit lit : *++cnf.clauses().begin()) {
-                std::cout << lit << " ";
-            }
-            std::cout << std::endl;
+            size_t count = 0;
+            for (const Clause cl : cnf.clauses())
+                ++count;
+            std::cout << "Number of clauses: " << count << std::endl;
         }
         inline bool in_optimized_iteration() {
             return iteration == 0 && cfg.optimize_first_iteration;
