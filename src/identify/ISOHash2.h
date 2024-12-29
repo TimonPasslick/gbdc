@@ -29,8 +29,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <unordered_set>
 #include <vector>
 #include <memory>
-
-#include <sys/resource.h>
+#include <fstream>  // Include the fstream header for file operations
 
 #include "src/external/nadeau.h"
 
@@ -45,8 +44,13 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 //in KB
 long get_mem_usage()
 {
-    struct rusage usage;
-    return getrusage(RUSAGE_SELF, &usage) == 0 ? usage.ru_ixrss + usage.ru_idrss + usage.ru_isrss : -1;
+    std::ifstream statm("/proc/self/statm");
+    if (!statm.is_open()) return -1;
+
+    long size, resident, share, text, lib, data, dt;
+    statm >> size >> resident >> share >> text >> lib >> data >> dt;
+
+    return resident * sysconf(_SC_PAGE_SIZE);
 }
 
 namespace CNF {
