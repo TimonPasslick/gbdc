@@ -71,9 +71,10 @@ namespace CNF {
         // https://t5k.org/lists/2small/0bit.html
         constexpr static Hash ring_size = ((Hash) 0) - use_half_word_hash ? 5 : 59;
         using Clock = std::chrono::high_resolution_clock;
-        long start_mem;
+        long parsing_start_mem;
         Clock::time_point parsing_start_time;
         const CNF cnf;
+        long start_mem;
         Clock::time_point start_time;
         using Clause = typename CNF::Clause;
         struct LitColors {
@@ -152,9 +153,10 @@ namespace CNF {
 
         WeisfeilerLemanHasher(const char* filename, const WLHRuntimeConfig cfg)
                 : cfg(cfg)
-                , start_mem(get_mem_usage())
+                , parsing_start_mem(get_mem_usage())
                 , parsing_start_time(Clock::now())
                 , cnf(filename, cfg.shrink_to_fit)
+                , start_mem(get_mem_usage())
                 , start_time(Clock::now())
                 , color_functions {ColorFunction(cnf.nVars()), ColorFunction(cnf.nVars())}
         {
@@ -228,15 +230,20 @@ namespace CNF {
             if (cfg.return_measurements) {
                 const auto calculation_time = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start_time).count();
                 const auto parsing_time = std::chrono::duration_cast<std::chrono::nanoseconds>(start_time - parsing_start_time).count();
+                long parsing_mem_usage = start_mem;
                 long mem_usage = get_mem_usage();
-                if (mem_usage == -1 || start_mem == -1)
+                if (parsing_start_mem == -1 || parsing_mem_usage == -1 || mem_usage == -1) {
                     mem_usage = -1;
-                else
+                    parsing_mem_usage = -1;
+                } else {
                     mem_usage -= start_mem;
+                    parsing_mem_usage -= parsing_start_mem;
+                }
                 const double iteration_count = std::min<double>(iteration, cfg.depth / 2.);
                 result +=
                     "," + std::to_string(parsing_time) +
                     "," + std::to_string(calculation_time) +
+                    "," + std::to_string(parsing_mem_usage) +
                     "," + std::to_string(mem_usage) +
                     "," + std::to_string(iteration_count);
             }
