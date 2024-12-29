@@ -251,12 +251,12 @@ namespace CNF {
         bool use_prime_ring
     >
     std::string weisfeiler_leman_hash_generic(const char* filename, const WLHRuntimeConfig cfg) {
-        std::unique_ptr<WeisfeilerLemanHasher<
+        const auto hasher = std::make_unique<WeisfeilerLemanHasher<
             CNF,
             use_xxh3,
             use_half_word_hash,
             use_prime_ring
-        >> hasher(filename, cfg);
+        >>(filename, cfg);
         return (*hasher)();
     }
     /**
