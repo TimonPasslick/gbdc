@@ -28,6 +28,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <type_traits>
 #include <unordered_set>
 #include <vector>
+#include <memory>
 
 #include <sys/resource.h>
 
@@ -250,12 +251,13 @@ namespace CNF {
         bool use_prime_ring
     >
     std::string weisfeiler_leman_hash_generic(const char* filename, const WLHRuntimeConfig cfg) {
-        return WeisfeilerLemanHasher<
+        std::unique_ptr<WeisfeilerLemanHasher<
             CNF,
             use_xxh3,
             use_half_word_hash,
             use_prime_ring
-        >(filename, cfg)();
+        >> hasher(filename, cfg);
+        return (*hasher)();
     }
     /**
      * @brief Comparing Weisfeiler-Leman hashes is approximately as strong as
