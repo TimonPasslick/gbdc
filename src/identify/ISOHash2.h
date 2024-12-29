@@ -46,7 +46,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 long get_mem_usage()
 {
     struct rusage usage;
-    return getrusage(RUSAGE_SELF, &usage) == 0 ? usage.ru_maxrss : -1;
+    return getrusage(RUSAGE_SELF, &usage) == 0 ? usage.ru_ixrss + usage.ru_idrss + usage.ru_isrss : -1;
 }
 
 namespace CNF {
