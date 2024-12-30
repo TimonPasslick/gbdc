@@ -54,6 +54,9 @@ class NaiveCNFFormula {
     inline size_t nLiterals() const {
         return literals;
     }
+    inline size_t maxClauseLength() const {
+        return 0; // dummy, only interesting for SizeGroupedCNFFormula
+    }
 
     struct Clause {
         using It = std::vector<Lit>::const_iterator;

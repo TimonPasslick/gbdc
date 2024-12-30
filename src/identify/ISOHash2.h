@@ -252,7 +252,8 @@ namespace CNF {
                     "," + std::to_string(iteration_count) +
                     "," + std::to_string(cnf.nVars()) +
                     "," + std::to_string(cnf.nClauses()) +
-                    "," + std::to_string(cnf.nLiterals());
+                    "," + std::to_string(cnf.nLiterals()) +
+                    "," + std::to_string(cnf.maxClauseLength());
             }
             return result;
         }

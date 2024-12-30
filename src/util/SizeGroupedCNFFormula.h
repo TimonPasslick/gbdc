@@ -52,6 +52,9 @@ class SizeGroupedCNFFormula {
     inline size_t nLiterals() const {
         return literals;
     }
+    inline size_t maxClauseLength() const {
+        return clause_length_literals.size();
+    }
 
     struct Clause {
         using It = std::vector<Lit>::const_iterator;
