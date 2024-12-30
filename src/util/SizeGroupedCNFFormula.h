@@ -31,6 +31,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 class SizeGroupedCNFFormula {
     std::vector<std::vector<Lit>*> clause_length_literals;
     unsigned variables = 0;
+    unsigned clauses = 0;
+    unsigned literals = 0;
 
  public:
     explicit inline SizeGroupedCNFFormula(const char* filename, const bool shrink_to_fit) {
@@ -43,6 +45,12 @@ class SizeGroupedCNFFormula {
 
     inline size_t nVars() const {
         return variables;
+    }
+    inline size_t nClauses() const {
+        return clauses;
+    }
+    inline size_t nLiterals() const {
+        return literals;
     }
 
     struct Clause {
@@ -150,6 +158,8 @@ class SizeGroupedCNFFormula {
                 std::vector<Lit>& insert_here = *clause_length_literals[clause.size()];
                 insert_here.reserve(next_power_of_2(insert_here.size() + clause.size()));
                 insert_here.insert(insert_here.end(), clause.begin(), clause.end());
+                ++clauses;
+                literals += clause.size();
                 clause.clear();
             }
         }

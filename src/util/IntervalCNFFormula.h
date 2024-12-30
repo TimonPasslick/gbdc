@@ -31,6 +31,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 class IntervalCNFFormula {
     std::vector<Lit> literals;
     unsigned variables = 0;
+    unsigned clauses = 0;
+    unsigned n_literals = 0;
 
  public:
     explicit inline IntervalCNFFormula(const char* filename, const bool shrink_to_fit) {
@@ -39,6 +41,12 @@ class IntervalCNFFormula {
 
     inline size_t nVars() const {
         return variables;
+    }
+    inline size_t nClauses() const {
+        return clauses;
+    }
+    inline size_t nLiterals() const {
+        return n_literals;
     }
 
     struct Clause {
@@ -150,9 +158,11 @@ class IntervalCNFFormula {
                     ++length;
                     if (var > variables) variables = var;
                 }
-                if (length != 1)
+                if (length != 1) {
                     literals[literals.size() - length].x = length;
-                else
+                    ++clauses;
+                    n_literals += length - 1;
+                } else
                     literals.pop_back();
             }
         }

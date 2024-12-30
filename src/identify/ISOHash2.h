@@ -249,7 +249,10 @@ namespace CNF {
                     "," + std::to_string(calculation_time) +
                     "," + std::to_string(parsing_mem_usage) +
                     "," + std::to_string(mem_usage) +
-                    "," + std::to_string(iteration_count);
+                    "," + std::to_string(iteration_count) +
+                    "," + std::to_string(cnf.nVars()) +
+                    "," + std::to_string(cnf.nClauses()) +
+                    "," + std::to_string(cnf.nLiterals());
             }
             return result;
         }

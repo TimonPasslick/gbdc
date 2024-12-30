@@ -31,6 +31,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 class NaiveCNFFormula {
     For formula;
     unsigned variables = 0;
+    unsigned literals = 0;
 
  public:
     explicit inline NaiveCNFFormula(const char* filename, const bool shrink_to_fit) {
@@ -46,6 +47,12 @@ class NaiveCNFFormula {
 
     inline size_t nVars() const {
         return variables;
+    }
+    inline size_t nClauses() const {
+        return formula.size();
+    }
+    inline size_t nLiterals() const {
+        return literals;
     }
 
     struct Clause {
@@ -126,6 +133,7 @@ class NaiveCNFFormula {
                 }
                 if (shrink_to_fit) clause->shrink_to_fit();
                 formula.push_back(clause);
+                literals += clause->size();
             }
         }
         normalizeVariableNames();
