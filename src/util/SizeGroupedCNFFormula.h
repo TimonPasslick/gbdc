@@ -31,7 +31,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 class SizeGroupedCNFFormula {
     std::vector<std::vector<Lit>*> clause_length_literals;
     unsigned variables = 0;
-    unsigned clauses = 0;
+    unsigned n_clauses = 0;
     unsigned literals = 0;
 
  public:
@@ -47,7 +47,7 @@ class SizeGroupedCNFFormula {
         return variables;
     }
     inline size_t nClauses() const {
-        return clauses;
+        return n_clauses;
     }
     inline size_t nLiterals() const {
         return literals;
@@ -158,7 +158,7 @@ class SizeGroupedCNFFormula {
                 std::vector<Lit>& insert_here = *clause_length_literals[clause.size()];
                 insert_here.reserve(next_power_of_2(insert_here.size() + clause.size()));
                 insert_here.insert(insert_here.end(), clause.begin(), clause.end());
-                ++clauses;
+                ++n_clauses;
                 literals += clause.size();
                 clause.clear();
             }
