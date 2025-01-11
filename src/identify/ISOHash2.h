@@ -300,7 +300,7 @@ namespace CNF {
     std::string weisfeiler_leman_hash(
         const char* filename,
 
-        const unsigned formula_optimization_level = 2,
+        const unsigned formula_optimization_level = 1,
         const bool use_xxh3 = true,
         const bool use_half_word_hash = true,
         const bool use_prime_ring = false,
@@ -310,7 +310,7 @@ namespace CNF {
         const bool rehash_clauses = true,
         const bool optimize_first_iteration = true,
         const unsigned progress_check_iteration = 6,
-        const bool shrink_to_fit = true,
+        const bool shrink_to_fit = false,
         const bool return_measurements = true
     ) {
         constexpr std::string (*generic_functions[24])(const char* filename, const WLHRuntimeConfig cfg) = {
