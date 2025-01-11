@@ -75,48 +75,6 @@ class CNFFormula {
         formula.clear();
     }
 
-    struct Clause {
-        using It = std::vector<Lit>::const_iterator;
-        const It begin_, end_;
-        inline It begin() const {
-            return begin_;
-        }
-        inline It end() const {
-            return end_;
-        }
-        inline unsigned short size() const {
-            return end_ - begin_;
-        }
-    };
-    struct ClauseIt {
-        For::const_iterator it;
-        inline ClauseIt& operator ++ () {
-            ++it;
-            return *this;
-        }
-        inline Clause operator * () {
-            return Clause {(*it)->begin(), (*it)->end()};
-        }
-        inline bool operator != (ClauseIt o) {
-            return it != it;
-        }
-    };
-    struct Clauses {
-        const ClauseIt begin_, end_;
-        inline ClauseIt begin() const {
-            return begin_;
-        }
-        inline ClauseIt end() const {
-            return end_;
-        }
-    };
-    Clauses clauses() const {
-        return Clauses {
-            {formula.begin()},
-            {formula.end()}
-        };
-    }
-
     // create gapless representation of variables
     void normalizeVariableNames() {
         std::vector<unsigned> name;

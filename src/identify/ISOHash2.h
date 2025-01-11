@@ -31,8 +31,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <memory>
 #include <fstream>  // Include the fstream header for file operations
 
-#include "src/external/nadeau.h"
-
 #include "src/external/md5/md5.h"
 #define XXH_INLINE_ALL
 #include "xxhash.h"
