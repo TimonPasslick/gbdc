@@ -60,6 +60,7 @@ namespace CNF {
         unsigned progress_check_iteration;
         bool shrink_to_fit;
         bool return_measurements;
+        bool sort_for_clause_hash;
     };
     template < // compile time config
         typename CNF,
@@ -173,10 +174,19 @@ namespace CNF {
                 lc.cross_reference();
         }
         Hash clause_hash(const Clause cl) {
-            Hash h = hash_sum<const Lit>(cl, [this](const Lit lit) { return old_color()(lit); });
-            // hash again to preserve clause structure
-            if (cfg.rehash_clauses) h = hash(h);
-            return h;
+            if (!cfg.sort_for_clause_hash) {
+                Hash h = hash_sum<const Lit>(cl, [this](const Lit lit) { return old_color()(lit); });
+                // hash again to preserve clause structure
+                if (cfg.rehash_clauses) h = hash(h);
+                return h;
+            } else {
+                std::vector<Hash> sorted;
+                sorted.reserve(cl.size());
+                for (const Lit lit : cl)
+                    sorted.push_back(old_color()(lit));
+                std::sort(sorted.begin(), sorted.end());
+                return XXH3_64bits(sorted.data(), sorted.size() * sizeof(Hash));
+            }
         };
         void iteration_step() {
             cross_reference();
@@ -263,7 +273,10 @@ namespace CNF {
         bool use_half_word_hash,
         bool use_prime_ring
     >
-    std::string weisfeiler_leman_hash_generic(const char* filename, const WLHRuntimeConfig cfg) {
+    std::string weisfeiler_leman_hash_generic(const char* filename, WLHRuntimeConfig cfg) {
+        if (cfg.sort_for_clause_hash && !use_xxh3) {
+            std::cerr << "Warning: combining MD5 and sorting is not properly supported. Using XXH3 instead for clause hashes." << std::endl;
+        }
         const auto hasher = std::make_unique<WeisfeilerLemanHasher<
             CNF,
             use_xxh3,
@@ -292,6 +305,8 @@ namespace CNF {
      * @param return_measurements whether the parsing time, the calculation
      * time (both nanoseconds), the memory usage (bytes) and the amount of
      * iterations that were calculated (possibly half) should be returned
+     * @param sort_for_clause_hash whether the clause hash input should be
+     * sorted and input directly into the hash function
      * @return comma separated list, std::string Weisfeiler-Leman hash,
      * possibly measurements
      */
@@ -309,7 +324,8 @@ namespace CNF {
         const bool optimize_first_iteration = true,
         const unsigned progress_check_iteration = 6,
         const bool shrink_to_fit = false,
-        const bool return_measurements = true
+        const bool return_measurements = true,
+        const bool sort_for_clause_hash = false
     ) {
         constexpr std::string (*generic_functions[24])(const char* filename, const WLHRuntimeConfig cfg) = {
             weisfeiler_leman_hash_generic<NaiveCNFFormula, false, false, false>,
@@ -349,7 +365,8 @@ namespace CNF {
             optimize_first_iteration,
             progress_check_iteration,
             shrink_to_fit,
-            return_measurements
+            return_measurements,
+            sort_for_clause_hash
         });
     }
 } // namespace CNF
